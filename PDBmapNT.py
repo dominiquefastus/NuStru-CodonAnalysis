@@ -6,16 +6,19 @@ import requests
 import json
 import pandas as pd
 
+import mysql.connector
 import sqlite3
 from sqlite3 import Error
-
-
-from bs4 import BeautifulSoup
 
 from dataclasses import dataclass
 from string import Template
 
 from Bio import Entrez
+
+nustruDB = mysql.connector.connect(
+    host="localhost",
+    user="root",
+)
 
 def create_connection(db_file):
     """
@@ -29,20 +32,16 @@ def create_connection(db_file):
 
         # Create a table
         sqliteCursor.execute('''CREATE TABLE IF NOT EXISTS pdb_entries
-                        (pdb_id TEXT PRIMARY KEY,
-                        uniprot_id TEXT SECONDARY KEY, 
+                        (primary_id TEXT PRIMARY KEY,
+                        secondary_id TEXT SECONDARY KEY, 
+                        gene_name TEXT,
+                        organism TEXT,
+                        expression_system TEXT,
+                        mitochondrial TEXT,
                         protein_sequence TEXT,
                         genome_id TEXT, 
                         nucleotide_sequence TEXT);''')
         
-        # Create a table
-        sqliteCursor.execute('''CREATE TABLE IF NOT EXISTS uprot_entries
-                        (uniprot_id TEXT PRIMARY KEY, 
-                        pdb_id TEXT SECONDARY KEY,
-                        protein_sequence TEXT,
-                        genome_id TEXT, 
-                        nucleotide_sequence TEXT);''')
-    
         # Close the connection
         sqliteConnection.close()
     
