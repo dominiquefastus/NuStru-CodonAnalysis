@@ -1,81 +1,59 @@
 import argparse
 import requests
 import json
-import re
+
+from typing import List
 
 import mysql.connector
 from mysql.connector import Error
-
-import sqlite3
-from sqlite3 import Error
+from getpass import getpass
 
 from Bio import Entrez
-from Bio import SeqIO
-
 
 nustruDB = mysql.connector.connect(
     host="localhost",
-    user="root",
+    user=input("Enter username: "),
+    password=getpass("Enter password: "),
     database="nustruDB"
 )
 
+def execute_database(method, table, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+    if nustruDB is None:
+        print("Error! Database connection is not established.")
+        return
 
-def create_connection(db_file):
-    """
-    Create database connection to nustruDB
-    """
-    
-    sqliteConnection = None
-    try:
-        sqliteConnection = sqlite3.connect(db_file)
-        sqliteCursor = sqliteConnection.cursor()
-
-        # Create a table
-        sqliteCursor.execute('''CREATE TABLE IF NOT EXISTS pdb_entries
-                        (primary_id TEXT PRIMARY KEY,
-                        secondary_id TEXT SECONDARY KEY, 
-                        gene_name TEXT,
-                        organism TEXT,
-                        expression_system TEXT,
-                        mitochondrial TEXT,
-                        protein_sequence TEXT,
-                        genome_id TEXT, 
-                        nucleotide_sequence TEXT);''')
-        
-        # Close the connection
-        sqliteConnection.close()
-    
-    except Error as e:
-        print('Error occurred - ', e)
-    finally:
-        if sqliteConnection:
-            sqliteConnection.close()
-            print('SQLite Connection closed')
-            
-def execute_database(method, db_file, table, entry_id, sec_id, protein_sequence, genome_id, nucleotide_sequence):
-    sqliteConnection = sqlite3.connect(db_file)
-    sqliteCursor = sqliteConnection.cursor()
+    cursor = nustruDB.cursor()
     
     if method == "INSERT":
-        sqliteCursor.execute(f'INSERT OR IGNORE INTO {table} VALUES (?,?,?,?,?)', (entry_id, sec_id, protein_sequence, genome_id, nucleotide_sequence))
-        print(f'Entry {entry_id} succesfull inserted to {table} in nustru.db!')
+        insert_entry = '''INSERT INTO {} 
+                          (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
+        entry = ("uniprot", entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
+        
+        cursor.execute(insert_entry, entry)
+        nustruDB.commit()
+        print(f'Entry {entry_id} successfully inserted in {table}!')
         
     elif method == "UPDATE":
-        sqliteCursor.execute(f'UPDATE {table} SET protein_sequence = ?, genome_id = ?, nucleotide_sequence = ? WHERE pdb_id = ?', (protein_sequence, genome_id, nucleotide_sequence, entry_id))
+        update_entry = '''UPDATE {} 
+                          SET protein_sequence = %s, nucleotide_id = %s, nucleotide_sequence = %s 
+                          WHERE primary_id = %s'''.format(table)
+        entry = (protein_sequence, nucleotide_id, nucleotide_sequence, entry_id)
+        
+        cursor.execute(update_entry, entry)
+        nustruDB.commit()
+        print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
         # Select all rows from the table
-        sqliteCursor.execute(f'SELECT * FROM {table}')
+        cursor.execute(f'SELECT * FROM {table}')
         
         # Fetch all rows from the cursor
-        rows = sqliteCursor.fetchall()
+        rows = cursor.fetchall()
 
         # Print the rows
         for row in rows:
             print(row)
-    
-    sqliteConnection.commit() 
-    sqliteConnection.close()
     
 #------------------------------------------------
 
@@ -104,8 +82,8 @@ def get_base_data(uniprotID):
     
     return organism,gene_name,sequence
 
-def filter_sequence(sequences, uniprotID=None, proteinID=None):
-    search_criteria = [uniprotID, proteinID]
+def filter_sequence(sequences: str, searchID: List) -> None:
+    search_criteria = searchID
     unique_sequences = set()
     matching_data = []
     entries = sequences.split('>')
@@ -121,56 +99,82 @@ def filter_sequence(sequences, uniprotID=None, proteinID=None):
 
     return matching_data
 
-def get_cds(uniprotID):
-    url_ccds = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=xref_ccds' %uniprotID
-    url_gene = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=xref_embl' %uniprotID
+def check_isoform(uniprotID):
+    url_gene = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=cc_alternative_products' %uniprotID
 
-    response_ccds = requests.get(url_ccds)
-      
-    if response_ccds.status_code == 200:
-        response = json.loads(response_ccds.text)
+    response_gene = requests.get(url_gene)
+
+    if response_gene.status_code == 200: 
+        response = json.loads(response_gene.text)
         
+        try:
+            if any(response['results'][0]['comments'][0]['isoforms']):
+                return True
+        except:
+            return False
+
+def get_isoform(uniprotID):
+    url = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=xref_refseq' %uniprotID
+
+    response = requests.get(url=url)
+
+    print("response status code: ", response.status_code)
+
+    if response.status_code == 200:
+        response = json.loads(response.text)
+        print(response)
+
         if response['results'][0]['uniProtKBCrossReferences']:
-            ccds_avail = True
-            ccds_ids = []
+            protein_ids = []
+            cds_ids = []
             isoformIds = []
-            for ccds_ref in response['results'][0]['uniProtKBCrossReferences']:
-                ccds_id = ccds_ref['id']
-                ccds_ids.append(ccds_id)
+            
+            for cds_ref in response['results'][0]['uniProtKBCrossReferences']:
+                protein_id = cds_ref['id']
+                
+                if protein_id.startswith("NP"):
+                    protein_ids.append(protein_id)
+                    
+                    cds_id = cds_ref['properties'][0]['value']
+
+                    if cds_id.startswith("NM"):
+                        cds_ids.append(cds_id)
+                    
                 try:
-                    isoformId = ccds_ref['isoformId']
+                    isoformId = cds_ref['isoformId']
                     isoformIds.append(isoformId)
                 except:
                     pass
-                
-            # print(ccds_ids,isoformIds)
-                
-        else:
-            ccds_avail = False
-            response_gene = requests.get(url_gene)
-        
-            if response_gene.status_code == 200: 
-                cds_ids = []
-                protein_ids = []
-                
-                response = json.loads(response_gene.text)
-                # print(response)
-                
-                if response['results'][0]['uniProtKBCrossReferences']:
-                    for cds_ref in response['results'][0]['uniProtKBCrossReferences']:
-                        cds_id = cds_ref['id']
-                        
-                        for properties in cds_ref['properties']:
+                    
+            return protein_ids, cds_ids, isoformIds
 
-                            if properties['key'] == 'ProteinId':
-                                protein_id = properties['value']
-                        
-                            if properties['key'] == 'Status':
-                                status_code = properties['value']
-                            
-                        if status_code == "-":
-                            cds_ids.append(cds_id)
-                            protein_ids.append(protein_id)
+def get_cds(uniprotID):
+    url_gene = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=xref_embl' %uniprotID
+
+    response_gene = requests.get(url_gene)
+
+    if response_gene.status_code == 200: 
+        cds_ids = []
+        protein_ids = []
+        
+        response = json.loads(response_gene.text)
+
+        
+        if response['results'][0]['uniProtKBCrossReferences']:
+            for cds_ref in response['results'][0]['uniProtKBCrossReferences']:
+                cds_id = cds_ref['id']
+                
+                for properties in cds_ref['properties']:
+
+                    if properties['key'] == 'ProteinId':
+                        protein_id = properties['value']
+                
+                    if properties['key'] == 'Status':
+                        status_code = properties['value']
+                    
+                if status_code == "-":
+                    cds_ids.append(cds_id)
+                    protein_ids.append(protein_id)
                         
         return cds_ids, protein_ids
     
@@ -183,38 +187,49 @@ def main():
     parser.add_argument('entryID')
     args = parser.parse_args()
     
-    create_connection("nustru.db")
-    
     with open(args.entryID,'r') as entryIDs_file:
         entryIDs_file = entryIDs_file.read()
 
         for uniprot_id in entryIDs_file.split(','):
-            organism,gene_name,sequence = get_base_data(uniprotID=uniprot_id)
-            cds_ids, protein_ids = get_cds(uniprotID=uniprot_id)
-
-            for cds_id, protein_id in zip(cds_ids, protein_ids):
-                if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
-                    print(cds_id, protein_id)
-                    response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
-                    print(response_sequences)
-                    
-                    print(filter_sequence(sequences=response_sequences, uniprotID="P10486", proteinID=protein_id))
-                    break
+            pass
     
 if __name__ == '__main__':
-    organism,gene_name,sequence = get_base_data("P02185")
-    cds_ids, protein_ids = get_cds("P02185")
-
+    uniprotID = "P00803"
+    organism, gene_name, sequence = get_base_data(uniprotID)
     print(organism, gene_name, sequence)
-    for cds_id, protein_id in zip(cds_ids, protein_ids):
-        if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
-            print(cds_id, protein_id)
-            response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
+    
+    if check_isoform(uniprotID):
+        protein_ids, cds_ids, isoform_ids = get_isoform(uniprotID)
+        
+        isoform_protein_sequences = []
+        for cds_id, protein_id, isoform_id in zip(cds_ids, protein_ids, isoform_ids):
+            print(cds_id, protein_id, isoform_id)
+            nt_response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
             
-            matched_id, matched_seq = filter_sequence(sequences=response_sequences, uniprotID="P10486", proteinID=protein_id)[0]
+            filter_sequence(sequences=nt_response_sequences,searchID=[cds_id])
             
-            print(matched_id)
-            print(matched_seq)
-            break
+            protein_response_sequence = retrieve_nucleotide_seq(ncbiDB="protein",entryID=protein_id, rettype="fasta")
+            
+            protein_response_sequence = filter_sequence(sequences=protein_response_sequence,searchID=[protein_id])
+            isoform_protein_sequences.append(protein_response_sequence[0][1])
+            
+             
+    if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
+        cds_ids, protein_ids = get_cds(uniprotID)
+        
+        for cds_id, protein_id in zip(cds_ids, protein_ids):
+            if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
+                print(cds_id, protein_id)
+                response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
+                
+                matched_id, matched_seq = filter_sequence(sequences=response_sequences,searchID=[uniprotID, protein_id])[0]
+                
+                print(matched_seq)
+                print(sequence)
+                
+                execute_database(method="INSERT", table="nucleotide_protein_seqs", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                 nucleotide_id=cds_id, nucleotide_sequence=matched_seq)
+                break
     
     
