@@ -4,81 +4,58 @@
 import argparse
 import requests
 import json
-import pandas as pd
 
 import mysql.connector
 from mysql.connector import Error
-
-import sqlite3
-from sqlite3 import Error
-
-from dataclasses import dataclass
-from string import Template
+from getpass import getpass
 
 from Bio import Entrez
 
 nustruDB = mysql.connector.connect(
     host="localhost",
-    user="root",
+    user=input("Enter username: "),
+    password=getpass("Enter password: "),
+    database="nustruDB"
 )
+    
+def execute_database(method, table, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+    if nustruDB is None:
+        print("Error! Database connection is not established.")
+        return
 
-def create_connection(db_file):
-    """
-    Create database connection to nustruDB
-    """
-    
-    sqliteConnection = None
-    try:
-        sqliteConnection = sqlite3.connect(db_file)
-        sqliteCursor = sqliteConnection.cursor()
-
-        # Create a table
-        sqliteCursor.execute('''CREATE TABLE IF NOT EXISTS pdb_entries
-                        (primary_id CHAR(20) PRIMARY KEY,
-                        secondary_id CHAR(20) SECONDARY KEY, 
-                        gene_name CHAR(80),
-                        organism CHAR(200),
-                        expression_system CHAR(200),
-                        mitochondrial CHAR(6),
-                        protein_sequence MEDIUMTEXT,
-                        nucleotide_id CHAR(20), 
-                        nucleotide_sequence MEDIUMTEXT);''')
-        
-        # Close the connection
-        sqliteConnection.close()
-    
-    except Error as e:
-        print('Error occurred - ', e)
-    finally:
-        if sqliteConnection:
-            sqliteConnection.close()
-            print('SQLite Connection closed')
-    
-def execute_database(method, db_file, table, entry_id, sec_id, protein_sequence, genome_id, nucleotide_sequence):
-    sqliteConnection = sqlite3.connect(db_file)
-    sqliteCursor = sqliteConnection.cursor()
+    cursor = nustruDB.cursor()
     
     if method == "INSERT":
-        sqliteCursor.execute(f'INSERT OR IGNORE INTO {table} VALUES (?,?,?,?,?)', (entry_id, sec_id, protein_sequence, genome_id, nucleotide_sequence))
-        print(f'Entry {entry_id} succesfull inserted to {table} in nustru.db!')
+        insert_entry = '''INSERT INTO {} 
+                          (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
+        entry = ("pdb", entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
+        
+        cursor.execute(insert_entry, entry)
+        nustruDB.commit()
+        print(f'Entry {entry_id} successfully inserted in {table}!')
         
     elif method == "UPDATE":
-        sqliteCursor.execute(f'UPDATE {table} SET protein_sequence = ?, genome_id = ?, nucleotide_sequence = ? WHERE pdb_id = ?', (protein_sequence, genome_id, nucleotide_sequence, entry_id))
+        update_entry = '''UPDATE {} 
+                          SET protein_sequence = %s, nucleotide_id = %s, nucleotide_sequence = %s 
+                          WHERE primary_id = %s'''.format(table)
+        entry = (protein_sequence, nucleotide_id, nucleotide_sequence, entry_id)
+        
+        cursor.execute(update_entry, entry)
+        nustruDB.commit()
+        print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
         # Select all rows from the table
-        sqliteCursor.execute(f'SELECT * FROM {table}')
+        cursor.execute(f'SELECT * FROM {table}')
         
         # Fetch all rows from the cursor
-        rows = sqliteCursor.fetchall()
+        rows = cursor.fetchall()
 
         # Print the rows
         for row in rows:
             print(row)
-    
-    sqliteConnection.commit()
-    
-    sqliteConnection.close()
+
 
 def get_allignment(entryID, id_type):
     allignment_range = {}
@@ -152,9 +129,6 @@ def retrieve_nucleotide_seqs(genomeID=None, seqSTART=None, seqEND=None, orientat
     handle = Entrez.efetch(db="nuccore", id=genomeID, seq_start=seqSTART, seq_stop=seqEND, strand=orientation, rettype="fasta", retmode="text")
     
     return handle.read().partition("\n")[2].strip()
-    
-def console(pdb_seq, nt_seq):
-    pass
 
 def main():
     parser = argparse.ArgumentParser(
@@ -163,8 +137,6 @@ def main():
     )
     parser.add_argument('entryID')
     args = parser.parse_args()
-    
-    create_connection("nustru.db")
     
     with open(args.entryID,'r') as entryIDs_file:
         entryIDs_file = entryIDs_file.read()
@@ -209,9 +181,11 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
-                execute_database("INSERT", r"nustru.db", table="pdb_entries", entry_id=pdb_id, sec_id=uniprotID, protein_sequence=pdb_sequence,
-                                genome_id=genomeID, nucleotide_sequence=nu_sequence)
-            except:
+                execute_database(method="INSERT", table="nucleotide_protein_seqs", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
+                                 expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
+                                 nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+            except Error as e:
+                print(e)
                 print(f"Genomic coordinated for protein {pdb_id} not available!")
             
             
@@ -249,10 +223,12 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
-                execute_database("INSERT", r"nustru.db", table="uprot_entries", entry_id=uniprotID, sec_id=pdb_id, protein_sequence=pdb_sequence,
-                                genome_id=genomeID, nucleotide_sequence=nu_sequence)
-            except:
-                print(f"Genomic coordinated for protein {args.entryID} not available!")
+                execute_database(method="INSERT", table="nucleotide_protein_seqs", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
+                                 expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
+                                 nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+            except Error as e:
+                print(e)
+                print(f"Genomic coordinated for protein {uniprotID} not available!")
                 pass
     
 
