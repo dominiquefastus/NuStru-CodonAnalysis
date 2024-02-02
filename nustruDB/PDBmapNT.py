@@ -18,7 +18,7 @@ nustruDB = mysql.connector.connect(
     database="nustruDB"
 )
     
-def execute_database(method, table, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+def execute_database(method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
     if nustruDB is None:
         print("Error! Database connection is not established.")
         return
@@ -29,7 +29,7 @@ def execute_database(method, table, entry_id, gene_name, organism, expression_sy
         insert_entry = '''INSERT INTO {} 
                           (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
-        entry = ("pdb", entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
+        entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
         
         cursor.execute(insert_entry, entry)
         nustruDB.commit()
@@ -181,7 +181,7 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
-                execute_database(method="INSERT", table="nucleotide_protein_seqs", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
+                execute_database(method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
                                  expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
                                  nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
             except Error as e:
@@ -223,7 +223,7 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
-                execute_database(method="INSERT", table="nucleotide_protein_seqs", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
+                execute_database(method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
                                  expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
                                  nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
             except Error as e:

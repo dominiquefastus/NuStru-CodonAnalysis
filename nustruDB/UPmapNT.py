@@ -13,11 +13,12 @@ from Bio import Entrez
 nustruDB = mysql.connector.connect(
     host="localhost",
     user=input("Enter username: "),
-    password=getpass("Enter password: "),
+    # password=getpass("Enter password: "),
+    password="AL-16-C998",
     database="nustruDB"
 )
 
-def execute_database(method, table, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+def execute_database(method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
     if nustruDB is None:
         print("Error! Database connection is not established.")
         return
@@ -28,7 +29,7 @@ def execute_database(method, table, entry_id, gene_name, organism, expression_sy
         insert_entry = '''INSERT INTO {} 
                           (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
-        entry = ("uniprot", entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
+        entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
         
         cursor.execute(insert_entry, entry)
         nustruDB.commit()
@@ -180,21 +181,7 @@ def get_cds(uniprotID):
     
     
 def main():
-    parser = argparse.ArgumentParser(
-        prog="PDBmapNT",
-        description="Maps Uniprot ID to nucleotide sequence and prints an allignment of the pdb protein sequence to the nucleotide sequence"
-    )
-    parser.add_argument('entryID')
-    args = parser.parse_args()
-    
-    with open(args.entryID,'r') as entryIDs_file:
-        entryIDs_file = entryIDs_file.read()
-
-        for uniprot_id in entryIDs_file.split(','):
-            pass
-    
-if __name__ == '__main__':
-    uniprotID = "P00803"
+    uniprotID = "Q9UJV3"
     organism, gene_name, sequence = get_base_data(uniprotID)
     print(organism, gene_name, sequence)
     
@@ -206,12 +193,16 @@ if __name__ == '__main__':
             print(cds_id, protein_id, isoform_id)
             nt_response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
             
-            filter_sequence(sequences=nt_response_sequences,searchID=[cds_id])
+            nt_response_sequences = filter_sequence(sequences=nt_response_sequences,searchID=[cds_id])
             
             protein_response_sequence = retrieve_nucleotide_seq(ncbiDB="protein",entryID=protein_id, rettype="fasta")
             
             protein_response_sequence = filter_sequence(sequences=protein_response_sequence,searchID=[protein_id])
             isoform_protein_sequences.append(protein_response_sequence[0][1])
+            
+            execute_database(method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
+                             expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                             nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1])
             
              
     if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
@@ -227,9 +218,11 @@ if __name__ == '__main__':
                 print(matched_seq)
                 print(sequence)
                 
-                execute_database(method="INSERT", table="nucleotide_protein_seqs", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                execute_database(method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
                                  expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
                                  nucleotide_id=cds_id, nucleotide_sequence=matched_seq)
                 break
     
+if __name__ == '__main__':
+    main()
     
