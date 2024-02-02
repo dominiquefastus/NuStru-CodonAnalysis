@@ -24,6 +24,7 @@ def create_table():
         # Create a table
         sqlCursor.execute('''CREATE TABLE IF NOT EXISTS nucleotide_protein_seqs
                         (id INT AUTO_INCREMENT PRIMARY KEY,
+                        source enum('pdb','uniprot'),
                         primary_id CHAR(20),
                         gene_name CHAR(80),
                         organism CHAR(200),
