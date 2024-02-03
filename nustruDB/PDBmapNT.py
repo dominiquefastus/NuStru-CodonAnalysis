@@ -26,7 +26,7 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
     cursor = nustruDB.cursor()
     
     if method == "INSERT":
-        insert_entry = '''INSERT INTO {} 
+        insert_entry = '''INSERT IGNORE INTO {} 
                           (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
         entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
@@ -37,7 +37,8 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         
     elif method == "UPDATE":
         update_entry = '''UPDATE {} 
-                          SET protein_sequence = %s, nucleotide_id = %s, nucleotide_sequence = %s 
+                          SET source = %s, primary_id = %s, gene_name = %s, organism = %s, expression_system = %s,
+                          mitochondrial = %s, protein_sequence = %s, nucleotide_id = %s, nucleotide_sequence = %s, 
                           WHERE primary_id = %s'''.format(table)
         entry = (protein_sequence, nucleotide_id, nucleotide_sequence, entry_id)
         
@@ -141,7 +142,8 @@ def main():
     with open(args.entryID,'r') as entryIDs_file:
         entryIDs_file = entryIDs_file.read()
 
-        for pdb_id in entryIDs_file.split(','):
+        for pdb_id in entryIDs_file.replace(" ", "").split(','):
+            print(pdb_id)
             pdb_id = pdb_id + "_1"
             
             try:
@@ -184,9 +186,10 @@ def main():
                 execute_database(method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
                                  expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
                                  nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
-            except Error as e:
-                print(e)
-                print(f"Genomic coordinated for protein {pdb_id} not available!")
+                
+            except:
+                print(f"Genomic coordinates for protein {pdb_id} not available!")
+                continue
             
             
             print("\n\n")
@@ -227,9 +230,8 @@ def main():
                                  expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
                                  nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
             except Error as e:
-                print(e)
-                print(f"Genomic coordinated for protein {uniprotID} not available!")
-                pass
+                print(f"Genomic coordinates for protein {uniprotID} not available!")
+                continue
     
 
 if __name__ == '__main__':
