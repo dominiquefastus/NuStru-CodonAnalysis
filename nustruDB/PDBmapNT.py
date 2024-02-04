@@ -5,25 +5,31 @@ import argparse
 import requests
 import json
 
+import pandas as pd
+import multiprocessing as mp
+
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
 
 from Bio import Entrez
 
-nustruDB = mysql.connector.connect(
-    host="localhost",
-    user=input("Enter username: "),
-    password=getpass("Enter password: "),
-    database="nustruDB"
-)
+def connect_DB():
+    nustruDB = mysql.connector.connect(
+        host="localhost",
+        user=input("Enter username: "),
+        password=getpass("Enter password: "),
+        database="nustruDB"
+    )
     
-def execute_database(method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
-    if nustruDB is None:
+    return nustruDB
+    
+def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+    if DB is None:
         print("Error! Database connection is not established.")
         return
 
-    cursor = nustruDB.cursor()
+    cursor = DB.cursor()
     
     if method == "INSERT":
         insert_entry = '''INSERT IGNORE INTO {} 
@@ -32,7 +38,7 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
         
         cursor.execute(insert_entry, entry)
-        nustruDB.commit()
+        DB.commit()
         print(f'Entry {entry_id} successfully inserted in {table}!')
         
     elif method == "UPDATE":
@@ -43,7 +49,7 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         entry = (protein_sequence, nucleotide_id, nucleotide_sequence, entry_id)
         
         cursor.execute(update_entry, entry)
-        nustruDB.commit()
+        DB.commit()
         print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
@@ -57,6 +63,11 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         for row in rows:
             print(row)
 
+def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+    df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, 
+                    "mitochondrial": mitochondrial, "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence}, ignore_index=True)
+    
+    return df
 
 def get_allignment(entryID, id_type):
     allignment_range = {}
@@ -137,8 +148,18 @@ def main():
         description="Maps PDB ID to nucleotide sequence and prints an allignment of the pdb protein sequence to the nucleotide sequence"
     )
     parser.add_argument('entryID')
+    parser.add_argument("--sql", action="store_true", dest="sql")
+    parser.add_argument("--pandas", action="store_true", dest="pandas")
     args = parser.parse_args()
     
+    if args.sql:
+        nustruDB = connect_DB()
+    elif args.pandas:
+        nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
+    else:
+        print("Please provide a way to store the data.")
+        exit(1)
+        
     with open(args.entryID,'r') as entryIDs_file:
         entryIDs_file = entryIDs_file.read()
 
@@ -183,11 +204,17 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
-                execute_database(method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
-                                 expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
-                                 nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                if args.sql:
+                    execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
+                                     expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
+                                     nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                else:
+                    nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="pdb", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
+                                                               expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
+                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                 
-            except:
+            except Error as e:
+                print(e)
                 print(f"Genomic coordinates for protein {pdb_id} not available!")
                 continue
             
@@ -196,7 +223,7 @@ def main():
                 
             
             try:
-                pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=uniprotID, id_type="uniprot")
+                uniprot_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=uniprotID, id_type="uniprot")
                 
                 print(pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range)
                 
@@ -226,12 +253,21 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
-                execute_database(method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
-                                 expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
-                                 nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                if args.sql:
+                    execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
+                                    expression_system="NaN", mitochondrial="False", protein_sequence=uniprot_sequence,
+                                    nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                else:
+                    nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
+                                                               expression_system="NaN", mitochondrial="False", protein_sequence=uniprot_sequence,
+                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                    
             except Error as e:
+                print(e)
                 print(f"Genomic coordinates for protein {uniprotID} not available!")
                 continue
+            
+            nucleotide_protein_seqs_df.to_csv('nustruDF.csv')
     
 
 if __name__ == '__main__':
