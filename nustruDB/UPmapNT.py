@@ -1,6 +1,7 @@
 import argparse
 import requests
 import json
+import os
 
 from typing import List
 
@@ -207,73 +208,85 @@ def main():
     )
     parser.add_argument('entryID')
     parser.add_argument("--sql", action="store_true", dest="sql")
-    parser.add_argument("--pandas", action="store_true", dest="pandas")
+    parser.add_argument("--pandas", dest="pandas")
     args = parser.parse_args()
     
     if args.sql:
         nustruDB = connect_DB()
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
+        if os.path.exists(args.pandas):
+            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
     else:
         print("Please provide a way to store the data.")
         exit(1)
         
-    uniprotID = "Q9UJV3"
-    organism, gene_name, sequence = get_base_data(uniprotID)
+    with open(args.entryID,'r') as entryIDs_file:
+        entryIDs_file = entryIDs_file.read()
+
+        for uniprotID in entryIDs_file.replace("\n", ",").split(','):
+            print(uniprotID)
+            
+            organism, gene_name, sequence = get_base_data(uniprotID)
     
-    if check_isoform(uniprotID):
-        protein_ids, cds_ids, isoform_ids = get_isoform(uniprotID)
+            try:
+                if check_isoform(uniprotID):
+                    protein_ids, cds_ids, isoform_ids = get_isoform(uniprotID)
+                    
+                    isoform_protein_sequences = []
+                    for cds_id, protein_id, isoform_id in zip(cds_ids, protein_ids, isoform_ids):
+                        print(cds_id, protein_id, isoform_id)
+                        nt_response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
+                        
+                        nt_response_sequences = filter_sequence(sequences=nt_response_sequences,searchID=[cds_id])
+                        
+                        protein_response_sequence = retrieve_nucleotide_seq(ncbiDB="protein",entryID=protein_id, rettype="fasta")
+                        
+                        protein_response_sequence = filter_sequence(sequences=protein_response_sequence,searchID=[protein_id])
+                        isoform_protein_sequences.append(protein_response_sequence[0][1])
+                        
+                        plddt = get_plddt(uniprotID=uniprotID)
+                        
+                        if args.sql:
+                            execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
+                                            expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                            nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1])
+                        else:
+                            nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
+                                            expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                            nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1], plddt=plddt)
+                            
+                            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
+                        
+                        
+                if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
+                    cds_ids, protein_ids = get_cds(uniprotID)
+                    plddt = get_plddt(uniprotID=uniprotID)
+                    
+                    for cds_id, protein_id in zip(cds_ids, protein_ids):
+                        if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
+                            print(cds_id, protein_id)
+                            response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
+                            
+                            matched_id, matched_seq = filter_sequence(sequences=response_sequences,searchID=[uniprotID, protein_id])[0]
+                            
+                            print(matched_seq)
+                            print(sequence)
+                            
+                            if args.sql:
+                                execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                                expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                                nucleotide_id=cds_id, nucleotide_sequence=matched_seq)
+                            else:
+                                nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                                expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                                nucleotide_id=cds_id, nucleotide_sequence=matched_seq, plddt=plddt)
+                                
+                                nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
+
+            except:
+                print(f"Nucleotide sequence for protein {uniprotID} not available!")
+                continue
         
-        isoform_protein_sequences = []
-        for cds_id, protein_id, isoform_id in zip(cds_ids, protein_ids, isoform_ids):
-            print(cds_id, protein_id, isoform_id)
-            nt_response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
-            
-            nt_response_sequences = filter_sequence(sequences=nt_response_sequences,searchID=[cds_id])
-            
-            protein_response_sequence = retrieve_nucleotide_seq(ncbiDB="protein",entryID=protein_id, rettype="fasta")
-            
-            protein_response_sequence = filter_sequence(sequences=protein_response_sequence,searchID=[protein_id])
-            isoform_protein_sequences.append(protein_response_sequence[0][1])
-            
-            plddt = get_plddt(uniprotID=isoform_id)
-            
-            if args.sql:
-                execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
-                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
-                                 nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1])
-            else:
-                nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
-                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
-                                 nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1], plddt=plddt)
-            
-             
-    if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
-        cds_ids, protein_ids = get_cds(uniprotID)
-        plddt = get_plddt(uniprotID=uniprotID)
-        
-        for cds_id, protein_id in zip(cds_ids, protein_ids):
-            if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
-                print(cds_id, protein_id)
-                response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
-                
-                matched_id, matched_seq = filter_sequence(sequences=response_sequences,searchID=[uniprotID, protein_id])[0]
-                
-                print(matched_seq)
-                print(sequence)
-                
-                if args.sql:
-                    execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
-                                    expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
-                                    nucleotide_id=cds_id, nucleotide_sequence=matched_seq)
-                else:
-                    nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
-                                    expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
-                                    nucleotide_id=cds_id, nucleotide_sequence=matched_seq, plddt=plddt)
-                break
-            
-    nucleotide_protein_seqs_df.to_csv('nustruDF.csv', mode='a', index=True, header=False)
-    
 if __name__ == '__main__':
     main()
-    
