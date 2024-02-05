@@ -4,6 +4,7 @@
 import argparse
 import requests
 import json
+import os
 
 import pandas as pd
 import multiprocessing as mp
@@ -13,6 +14,7 @@ from mysql.connector import Error
 from getpass import getpass
 
 from Bio import Entrez
+from biopandas.pdb import PandasPdb 
 
 def connect_DB():
     nustruDB = mysql.connector.connect(
@@ -63,9 +65,9 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         for row in rows:
             print(row)
 
-def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
     df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial,
-                     "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence}, ignore_index=True)
+                     "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
     
     return df
 
@@ -142,6 +144,17 @@ def retrieve_nucleotide_seqs(genomeID=None, seqSTART=None, seqEND=None, orientat
     
     return handle.read().partition("\n")[2].strip()
 
+def get_plddt(uniprotID):
+    ppdb = PandasPdb().fetch_pdb(uniprot_id=uniprotID, source="alphafold2-v2")
+    residue_b_factors = ppdb.df["ATOM"][["b_factor","residue_number"]]
+
+
+    residue_b_factors = residue_b_factors.groupby(["residue_number"]).mean().round(4)
+
+    residue_b_factors_dict = residue_b_factors.to_dict()
+
+    return residue_b_factors_dict["b_factor"]
+
 def main():
     parser = argparse.ArgumentParser(
         prog="PDBmapNT",
@@ -149,13 +162,15 @@ def main():
     )
     parser.add_argument('entryID')
     parser.add_argument("--sql", action="store_true", dest="sql")
-    parser.add_argument("--pandas", action="store_true", dest="pandas")
+    parser.add_argument("--pandas", dest="pandas")
     args = parser.parse_args()
     
     if args.sql:
         nustruDB = connect_DB()
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
+        if os.path.exists(args.pandas):
+            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=True, header=False)
     else:
         print("Please provide a way to store the data.")
         exit(1)
@@ -211,10 +226,11 @@ def main():
                 else:
                     nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="pdb", entry_id=pdb_id, gene_name="NaN", organism="NaN", 
                                                                expression_system="NaN", mitochondrial="False", protein_sequence=pdb_sequence,
-                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt="NaN")
+                    
+                    nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=True, header=True)
                 
-            except Error as e:
-                print(e)
+            except:
                 print(f"Genomic coordinates for protein {pdb_id} not available!")
                 continue
             
@@ -253,6 +269,8 @@ def main():
                 nu_sequence = nu_sequence.replace('\n','')
                 print(nu_sequence, '\n')
                 
+                plddt = get_plddt(uniprotID=uniprotID)
+                
                 if args.sql:
                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
                                     expression_system="NaN", mitochondrial="False", protein_sequence=uniprot_sequence,
@@ -260,15 +278,13 @@ def main():
                 else:
                     nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name="NaN", organism="NaN", 
                                                                expression_system="NaN", mitochondrial="False", protein_sequence=uniprot_sequence,
-                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt=plddt)
                     
-            except Error as e:
-                print(e)
+                    nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=True, header=True)
+                    
+            except:
                 print(f"Genomic coordinates for protein {uniprotID} not available!")
                 continue
-            
-            nucleotide_protein_seqs_df.to_csv('nustruDF.csv', mode='a', index=True, header=False)
-    
 
 if __name__ == '__main__':
     main()
