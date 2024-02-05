@@ -64,8 +64,8 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
             print(row)
 
 def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
-    df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, 
-                    "mitochondrial": mitochondrial, "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence}, ignore_index=True)
+    df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial,
+                     "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence}, ignore_index=True)
     
     return df
 
@@ -267,7 +267,7 @@ def main():
                 print(f"Genomic coordinates for protein {uniprotID} not available!")
                 continue
             
-            nucleotide_protein_seqs_df.to_csv('nustruDF.csv')
+            nucleotide_protein_seqs_df.to_csv('nustruDF.csv', mode='a', index=True, header=False)
     
 
 if __name__ == '__main__':
