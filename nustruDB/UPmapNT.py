@@ -4,26 +4,31 @@ import json
 
 from typing import List
 
+import pandas as pd
+from biopandas.pdb import PandasPdb 
+
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
 
 from Bio import Entrez
 
-nustruDB = mysql.connector.connect(
-    host="localhost",
-    user=input("Enter username: "),
-    # password=getpass("Enter password: "),
-    password="AL-16-C998",
-    database="nustruDB"
-)
+def connect_DB():
+    nustruDB = mysql.connector.connect(
+        host="localhost",
+        user=input("Enter username: "),
+        password=getpass("Enter password: "),
+        database="nustruDB"
+    )
+    
+    return nustruDB
 
-def execute_database(method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
-    if nustruDB is None:
+def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+    if DB is None:
         print("Error! Database connection is not established.")
         return
 
-    cursor = nustruDB.cursor()
+    cursor = DB.cursor()
     
     if method == "INSERT":
         insert_entry = '''INSERT INTO {} 
@@ -32,7 +37,7 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
         
         cursor.execute(insert_entry, entry)
-        nustruDB.commit()
+        DB.commit()
         print(f'Entry {entry_id} successfully inserted in {table}!')
         
     elif method == "UPDATE":
@@ -42,7 +47,7 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         entry = (protein_sequence, nucleotide_id, nucleotide_sequence, entry_id)
         
         cursor.execute(update_entry, entry)
-        nustruDB.commit()
+        DB.commit()
         print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
@@ -56,7 +61,11 @@ def execute_database(method, table, source, entry_id, gene_name, organism, expre
         for row in rows:
             print(row)
     
-#------------------------------------------------
+def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
+    df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial, 
+                    "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
+    
+    return df
 
 def retrieve_nucleotide_seq(ncbiDB="nuccore", entryID=None, rettype="fasta", retmode="text"):
     Entrez.email = "dominique.fastus@biochemistry.lu.se"    
@@ -179,11 +188,38 @@ def get_cds(uniprotID):
                         
         return cds_ids, protein_ids
     
+def get_plddt(uniprotID):
+    ppdb = PandasPdb().fetch_pdb(uniprot_id=uniprotID, source="alphafold2-v2")
+    residue_b_factors = ppdb.df["ATOM"][["b_factor","residue_number"]]
+
+
+    residue_b_factors = residue_b_factors.groupby(["residue_number"]).mean().round(4)
+
+    residue_b_factors_dict = residue_b_factors.to_dict()
+
+    return residue_b_factors_dict["b_factor"]
+    
     
 def main():
+    parser = argparse.ArgumentParser(
+        prog="UPmapNT",
+        description="Maps uniprot ID to nucleotide sequence and prints an allignment of the pdb protein sequence to the nucleotide sequence"
+    )
+    parser.add_argument('entryID')
+    parser.add_argument("--sql", action="store_true", dest="sql")
+    parser.add_argument("--pandas", action="store_true", dest="pandas")
+    args = parser.parse_args()
+    
+    if args.sql:
+        nustruDB = connect_DB()
+    elif args.pandas:
+        nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
+    else:
+        print("Please provide a way to store the data.")
+        exit(1)
+        
     uniprotID = "Q9UJV3"
     organism, gene_name, sequence = get_base_data(uniprotID)
-    print(organism, gene_name, sequence)
     
     if check_isoform(uniprotID):
         protein_ids, cds_ids, isoform_ids = get_isoform(uniprotID)
@@ -200,13 +236,21 @@ def main():
             protein_response_sequence = filter_sequence(sequences=protein_response_sequence,searchID=[protein_id])
             isoform_protein_sequences.append(protein_response_sequence[0][1])
             
-            execute_database(method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
-                             expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
-                             nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1])
+            plddt = get_plddt(uniprotID=isoform_id)
+            
+            if args.sql:
+                execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
+                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                 nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1])
+            else:
+                nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
+                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                 nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1], plddt=plddt)
             
              
     if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
         cds_ids, protein_ids = get_cds(uniprotID)
+        plddt = get_plddt(uniprotID=uniprotID)
         
         for cds_id, protein_id in zip(cds_ids, protein_ids):
             if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
@@ -218,10 +262,17 @@ def main():
                 print(matched_seq)
                 print(sequence)
                 
-                execute_database(method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
-                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
-                                 nucleotide_id=cds_id, nucleotide_sequence=matched_seq)
+                if args.sql:
+                    execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                    expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                    nucleotide_id=cds_id, nucleotide_sequence=matched_seq)
+                else:
+                    nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                    expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
+                                    nucleotide_id=cds_id, nucleotide_sequence=matched_seq, plddt=plddt)
                 break
+            
+    nucleotide_protein_seqs_df.to_csv('nustruDF.csv', mode='a', index=True, header=False)
     
 if __name__ == '__main__':
     main()
