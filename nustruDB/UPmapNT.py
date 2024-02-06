@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import argparse
 import requests
 import json
@@ -6,13 +9,15 @@ import os
 from typing import List
 
 import pandas as pd
-from biopandas.pdb import PandasPdb 
+import multiprocessing as mp
+from itertools import islice
 
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
 
 from Bio import Entrez
+from biopandas.pdb import PandasPdb 
 
 def connect_DB():
     nustruDB = mysql.connector.connect(
@@ -216,7 +221,7 @@ def main():
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
         if os.path.exists(args.pandas):
-            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
+            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=True)
     else:
         print("Please provide a way to store the data.")
         exit(1)
@@ -256,7 +261,7 @@ def main():
                                             expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
                                             nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1], plddt=plddt)
                             
-                            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
+                            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=False)
                         
                         
                 if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
@@ -282,7 +287,8 @@ def main():
                                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
                                                 nucleotide_id=cds_id, nucleotide_sequence=matched_seq, plddt=plddt)
                                 
-                                nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
+                                nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=False)
+                            break
 
             except:
                 print(f"Nucleotide sequence for protein {uniprotID} not available!")
