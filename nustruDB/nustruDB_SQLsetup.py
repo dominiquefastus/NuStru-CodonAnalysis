@@ -32,7 +32,8 @@ def create_table():
                         mitochondrial enum('True','False'),
                         protein_sequence MEDIUMTEXT,
                         nucleotide_id CHAR(20), 
-                        nucleotide_sequence MEDIUMTEXT);''')
+                        nucleotide_sequence MEDIUMTEXT
+                        plddt MEDIUMTEXT);''')
         
         nustruDB.commit()
     

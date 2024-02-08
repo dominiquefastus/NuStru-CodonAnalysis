@@ -27,7 +27,7 @@ def connect_DB():
     
     return nustruDB
     
-def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
+def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
     if DB is None:
         print("Error! Database connection is not established.")
         return
@@ -36,9 +36,9 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
     
     if method == "INSERT":
         insert_entry = '''INSERT IGNORE INTO {} 
-                          (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
-        entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
+                          (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
+        entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt)
         
         cursor.execute(insert_entry, entry)
         DB.commit()
@@ -48,8 +48,8 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         update_entry = '''UPDATE {} 
                           SET source = %s, primary_id = %s, gene_name = %s, organism = %s, expression_system = %s,
                           mitochondrial = %s, protein_sequence = %s, nucleotide_id = %s, nucleotide_sequence = %s, 
-                          WHERE primary_id = %s'''.format(table)
-        entry = (protein_sequence, nucleotide_id, nucleotide_sequence, entry_id)
+                          plddt = %s, WHERE primary_id = %s'''.format(table)
+        entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt)
         
         cursor.execute(update_entry, entry)
         DB.commit()
@@ -243,7 +243,7 @@ def main():
                     
                         
                         nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, seqSTART=exonSTART, seqEND=exonEND)
-                        
+                         
                     elif len(exon_range) == 0:
                         pass
                     
@@ -256,7 +256,7 @@ def main():
                 if args.sql:
                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_id, gene_name=gene_name, organism=organism, 
                                      expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
-                                     nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                                     nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt="NaN")
                 else:
                     nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="pdb", entry_id=pdb_id, gene_name=gene_name, organism=organism, 
                                                                expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
@@ -308,7 +308,7 @@ def main():
                 if args.sql:
                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
                                     expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
-                                    nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                                    nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt="NaN")
                 else:
                     nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
                                                                expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
