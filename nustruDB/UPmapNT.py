@@ -45,7 +45,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         
         cursor.execute(insert_entry, entry)
         DB.commit()
-        print(f'Entry {entry_id} successfully inserted in {table}!')
+        print(f'Entry {entry_id} successfully inserted in {table} of SQL database!')
         
     elif method == "UPDATE":
         update_entry = '''UPDATE {} 
@@ -59,19 +59,18 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
-        # Select all rows from the table
         cursor.execute(f'SELECT * FROM {table}')
         
-        # Fetch all rows from the cursor
         rows = cursor.fetchall()
 
-        # Print the rows
         for row in rows:
             print(row)
     
 def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
     df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial, 
                     "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
+    
+    print(f'Entry {entry_id} successfully inserted in pandas DataFrame!')
     
     return df
 
@@ -223,7 +222,7 @@ def main():
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
         if os.path.exists(args.pandas):
-            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=True)
+            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
     else:
         print("Please provide a way to store the data.")
         exit(1)
@@ -263,7 +262,7 @@ def main():
                                             expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
                                             nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1], plddt=plddt)
                             
-                            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=False)
+                            nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
                         
                         
                 if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
@@ -289,7 +288,8 @@ def main():
                                                 expression_system="NaN", mitochondrial="False", protein_sequence=sequence,
                                                 nucleotide_id=cds_id, nucleotide_sequence=matched_seq, plddt=plddt)
                                 
-                                nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=False)
+                                nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
+                                
                             break
 
             except:
