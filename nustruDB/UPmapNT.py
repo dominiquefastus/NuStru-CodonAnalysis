@@ -221,7 +221,7 @@ def main():
         nustruDB = connect_DB()
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-        if os.path.exists(args.pandas):
+        if not os.path.exists(args.pandas):
             nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
     else:
         print("Please provide a way to store the data.")
@@ -263,7 +263,7 @@ def main():
                                             nucleotide_id=cds_id, nucleotide_sequence=nt_response_sequences[0][1], plddt=plddt)
                             
                             nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
-                        
+                            del nucleotide_protein_seqs_df
                         
                 if not check_isoform(uniprotID) or not sequence in isoform_protein_sequences:
                     cds_ids, protein_ids = get_cds(uniprotID)
@@ -289,12 +289,16 @@ def main():
                                                 nucleotide_id=cds_id, nucleotide_sequence=matched_seq, plddt=plddt)
                                 
                                 nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
+                                del nucleotide_protein_seqs_df
+                                
                                 
                             break
 
             except:
                 print(f"Nucleotide sequence for protein {uniprotID} not available!")
                 continue
+            
+            nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
         
 if __name__ == '__main__':
     main()
