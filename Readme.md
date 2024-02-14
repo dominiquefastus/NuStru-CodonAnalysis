@@ -2,3 +2,8 @@
 
 Mainly, the project aims to discover correlations between specific 3D motifs in the
 protein structure and a bias in the condons that encode these motiffs. 
+
+## Introduction
+
+
+## Setup to create nustruDB database
