@@ -3,13 +3,7 @@ import pandas as pd
 from Bio import Entrez
 from typing import List
 
-def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
-    df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial,
-                     "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
-    
-    # print(f'Entry {entry_id} successfully inserted in pandas DataFrame!')
-    
-    return df
+import time
 
 def retrieve_nucleotide_seq(ncbiDB="nuccore", entryID=None, rettype="fasta", retmode="text"):
     Entrez.email = "dominique.fastus@biochemistry.lu.se"    
@@ -56,12 +50,17 @@ def get_cds(data):
     with open('/Users/dominiquefastus/Downloads/sequences.fasta', 'a') as f:
         f.write(f'>{matched_id}\n{matched_seq}\n')
     
-    return matched_seq
+    return cds_id, matched_seq
 
-df = pd.read_csv('/Users/dominiquefastus/Downloads/uniprotkb_taxonomy_id_562_2024_02_19.tsv', sep='\t', header=0, nrows=2)
+df = pd.read_csv('/Users/dominiquefastus/Downloads/uniprotkb_taxonomy_id_562_2024_02_19.tsv', sep='\t', header=0, nrows=4)
 
 
 nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
 nucleotide_protein_seqs_df.rename(columns={'Entry': 'primary_id', 'Gene Names (primary)': 'gene_name', 'Organism': 'organism', 'Subcellular location [CC]': 'expression_system', 'Sequence': 'protein_sequence', 'EMBL': 'nucleotide_id'}, inplace=True)
 
-print(nucleotide_protein_seqs_df.apply(get_cds, axis=1))
+start = time.time()
+nucleotide_protein_seqs_df['nucleotide_id'], nucleotide_protein_seqs_df['nucleotide_sequence'] = zip(*nucleotide_protein_seqs_df.apply(get_cds, axis=1))
+nucleotide_protein_seqs_df.to_csv('/Users/dominiquefastus/Downloads/nucleotide_protein_seqs.csv', index=False)
+stop = time.time()
+
+print(f"Time: {stop - start}")
