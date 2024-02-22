@@ -1,4 +1,6 @@
 import pandas as pd 
+import numpy as np
+
 from biopandas.pdb import PandasPdb 
 
 from Bio import Entrez
@@ -7,26 +9,25 @@ from typing import List
 import requests
 import swifter
 
-import time
-
-
+session = requests.Session()
 
 overall_cds = []
 overall_protein_ids = []
 
-def retrieve_nucleotide_seq(ncbiDB="nuccore", entryID=None, rettype="fasta", retmode="text"):
-    Entrez.email = "dominique.fastus@biochemistry.lu.se"    
-    handle = Entrez.efetch(db=ncbiDB, id=entryID, rettype=rettype, retmode=retmode)
+def retrieve_nucleotide_seq(ncbiDB="nuccore", entryID=None, rettype="fasta", retmode="text", session=session):
+    email = "dominique.fastus@biochemistry.lu.se"    
     
-    session = requests.Session()
     
     # handle = Entrez.efetch(db=ncbiDB, id=entryID, rettype=rettype, retmode=retmode)
     response = session.get(f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db={ncbiDB}&id={entryID}&rettype={rettype}&retmode={retmode}&email={email}&api_key={api_key}")
     
-    if response.status_code == 200: 
-        handle = response.text
-        
-    return handle
+    try:
+        if response.status_code == 200: 
+            handle = response.text
+            
+        return handle
+    except:
+        pass
 
 
 def filter_sequence(sequences: str, searchID: List) -> None:
@@ -47,7 +48,7 @@ def filter_sequence(sequences: str, searchID: List) -> None:
     return matching_data
 
 def get_cds(data):
-    id = data['nucleotide_id'].strip().replace('"', '').replace(' ', '')
+    id = str(data['nucleotide_id']).strip().replace('"', '').replace(' ', '')
     id_list = id.split(';')
     del id_list[-1]
     
@@ -58,9 +59,9 @@ def get_cds(data):
     
     for cds_id, protein_id, status in zip(cds_ids, protein_ids, status):
         if status == '-':            
-            if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == data['protein_sequence']:
+            if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id, session=session).partition("\n")[2].strip().replace('\n','') == data['protein_sequence']:
                 
-                response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
+                response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na", session=session)
                 
                 matched_id, matched_seq = filter_sequence(sequences=response_sequences,searchID=[data['primary_id'], protein_id])[0]  
 
@@ -73,7 +74,9 @@ def get_cds(data):
     return cds_id, protein_id, matched_seq
 
 def main():
-    df = pd.read_csv('/Users/dominiquefastus/Downloads/uniprotkb_taxonomy_id_562_2024_02_19.tsv', sep='\t', header=0, nrows=10)
+    df = pd.read_csv('/Users/dominiquefastus/Downloads/uniprotkb_taxonomy_id_562_2024_02_19.tsv', sep='\t', header=0, nrows=20,
+                     dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
+    df = df.replace(r'^\s*$', np.nan, regex=True)
 
     nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
     nucleotide_protein_seqs_df.columns = ['primary_id', 'gene_name', 'organism', 'expression_system', 'protein_sequence', 'nucleotide_id']
