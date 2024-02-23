@@ -12,6 +12,8 @@ import pandas as pd
 import multiprocessing as mp
 from itertools import islice
 
+from tqdm import tqdm
+
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
@@ -32,7 +34,7 @@ def connect_DB():
     
 def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
     if DB is None:
-        print("Error! Database connection is not established.")
+        # print("Error! Database connection is not established.")
         return
 
     cursor = DB.cursor()
@@ -45,7 +47,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         
         cursor.execute(insert_entry, entry)
         DB.commit()
-        print(f'Entry {entry_id} successfully inserted in {table} of SQL database!')
+        # print(f'Entry {entry_id} successfully inserted in {table} of SQL database!')
         
     elif method == "UPDATE":
         update_entry = '''UPDATE {} 
@@ -56,7 +58,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         
         cursor.execute(update_entry, entry)
         DB.commit()
-        print(f'Entry {entry_id} successfully updated in {table}!')
+        # print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
         cursor.execute(f'SELECT * FROM {table}')
@@ -70,7 +72,7 @@ def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, 
     df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial, 
                     "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
     
-    print(f'Entry {entry_id} successfully inserted in pandas DataFrame!')
+    # print(f'Entry {entry_id} successfully inserted in pandas DataFrame!')
     
     return df
 
@@ -79,8 +81,6 @@ def retrieve_nucleotide_seq(ncbiDB="nuccore", entryID=None, rettype="fasta", ret
     handle = Entrez.efetch(db=ncbiDB, id=entryID, rettype=rettype, retmode=retmode)
     
     return handle.read()
-
-pdbs_ref = 'https://rest.uniprot.org/uniprotkb/search?query=Q9UJV3&fields=xref_pdb'
 
 def get_base_data(uniprotID):
     base_data = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=gene_primary,sequence,organism_name,cc_subcellular_location' %uniprotID
@@ -92,10 +92,20 @@ def get_base_data(uniprotID):
         
         response = json.loads(response.text)
         
-        organism = response['results'][0]['organism']['scientificName']
-        gene_name = response['results'][0]['genes'][0]['geneName']['value']
+        try:
+            organism = response['results'][0]['organism']['scientificName']
+        except:
+            organism = "NaN"
+            
+        try:
+            gene_name = response['results'][0]['genes'][0]['geneName']['value']
+        except:
+            gene_name = "NaN"
         
-        sequence = response['results'][0]['sequence']['value']
+        try:
+            sequence = response['results'][0]['sequence']['value']
+        except: 
+            sequence = "NaN"
     
     return organism,gene_name,sequence
 
@@ -135,11 +145,11 @@ def get_isoform(uniprotID):
 
     response = requests.get(url=url)
 
-    print("response status code: ", response.status_code)
+    # print("response status code: ", response.status_code)
 
     if response.status_code == 200:
         response = json.loads(response.text)
-        print(response)
+        # print(response)
 
         if response['results'][0]['uniProtKBCrossReferences']:
             protein_ids = []
@@ -224,14 +234,16 @@ def main():
         if not os.path.exists(args.pandas):
             nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
     else:
-        print("Please provide a way to store the data.")
+        # print("Please provide a way to store the data.")
         exit(1)
         
     with open(args.entryID,'r') as entryIDs_file:
         entryIDs_file = entryIDs_file.read()
+        
+        process = tqdm(total=len(entryIDs_file.replace("\n", ",").split(',')))
 
         for uniprotID in entryIDs_file.replace("\n", ",").split(','):
-            print(uniprotID)
+            # print(uniprotID)
             
             organism, gene_name, sequence = get_base_data(uniprotID)
     
@@ -241,7 +253,7 @@ def main():
                     
                     isoform_protein_sequences = []
                     for cds_id, protein_id, isoform_id in zip(cds_ids, protein_ids, isoform_ids):
-                        print(cds_id, protein_id, isoform_id)
+                        # print(cds_id, protein_id, isoform_id)
                         nt_response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
                         
                         nt_response_sequences = filter_sequence(sequences=nt_response_sequences,searchID=[cds_id])
@@ -271,13 +283,13 @@ def main():
                     
                     for cds_id, protein_id in zip(cds_ids, protein_ids):
                         if retrieve_nucleotide_seq(ncbiDB="protein", entryID=protein_id).partition("\n")[2].strip().replace('\n','') == sequence:
-                            print(cds_id, protein_id)
+                            # print(cds_id, protein_id)
                             response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
                             
                             matched_id, matched_seq = filter_sequence(sequences=response_sequences,searchID=[uniprotID, protein_id])[0]
                             
-                            print(matched_seq)
-                            print(sequence)
+                            # print(matched_seq)
+                            # print(sequence)
                             
                             if args.sql:
                                 execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
@@ -295,10 +307,11 @@ def main():
                             break
 
             except:
-                print(f"Nucleotide sequence for protein {uniprotID} not available!")
+                # print(f"Nucleotide sequence for protein {uniprotID} not available!")
                 continue
             
             nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-        
+            process.update(1)
+            
 if __name__ == '__main__':
     main()

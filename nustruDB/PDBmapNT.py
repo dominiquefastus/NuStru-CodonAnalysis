@@ -10,6 +10,8 @@ import pandas as pd
 import multiprocessing as mp
 from itertools import islice
 
+from tqdm import tqdm
+
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
@@ -29,7 +31,7 @@ def connect_DB():
     
 def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
     if DB is None:
-        print("Error! Database connection is not established.")
+       # print("Error! Database connection is not established.")
         return
 
     cursor = DB.cursor()
@@ -42,7 +44,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         
         cursor.execute(insert_entry, entry)
         DB.commit()
-        print(f'Entry {entry_id} successfully inserted in {table} of SQL database!')
+        # print(f'Entry {entry_id} successfully inserted in {table} of SQL database!')
         
     elif method == "UPDATE":
         update_entry = '''UPDATE {} 
@@ -53,7 +55,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
         
         cursor.execute(update_entry, entry)
         DB.commit()
-        print(f'Entry {entry_id} successfully updated in {table}!')
+        # print(f'Entry {entry_id} successfully updated in {table}!')
         
     elif method == "SELECT ALL":
         # Select all rows from the table
@@ -70,7 +72,7 @@ def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, 
     df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial,
                      "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
     
-    print(f'Entry {entry_id} successfully inserted in pandas DataFrame!')
+    # print(f'Entry {entry_id} successfully inserted in pandas DataFrame!')
     
     return df
 
@@ -83,7 +85,7 @@ def get_base_data(entryID):
        
     response = requests.get(url=url)
 
-    print("response status code: ", response.status_code)
+    # print("response status code: ", response.status_code)
 
     if response.status_code == 200:
         response = json.loads(response.text)
@@ -129,7 +131,7 @@ def get_allignment(entryID, id_type):
     
     response = requests.get(url=url)
     
-    print("response status code: ", response.status_code)
+    # print("response status code: ", response.status_code)
     
     if response.status_code == 200:
         response = json.loads(response.text)
@@ -140,7 +142,7 @@ def get_allignment(entryID, id_type):
         
         # loop through the sequence positions
         for id, position in enumerate(response['data']['alignment']['target_alignment'][0]['aligned_regions']):
-            print(position)
+            # print(position)
             range = [position['target_begin'], position['target_end']]
             exon_shift_range[id] = position['exon_shift']
             allignment_range[id] = range
@@ -155,7 +157,7 @@ def map_uniprot(pdbID):
     
     response = requests.get(url=url)
     
-    print("response status code: ", response.status_code)
+    # print("response status code: ", response.status_code)
     
     if response.status_code == 200:
         response = json.loads(response.text)
@@ -209,14 +211,16 @@ def main():
         if not os.path.exists(args.pandas):
             nucleotide_protein_seqs_df.to_csv(args.pandas, mode='w', index=False, header=True)
     else:
-        print("Please provide a way to store the data.")
+        # print("Please provide a way to store the data.")
         exit(1)
         
     with open(args.entryID,'r') as entryIDs_file:
         entryIDs_file = entryIDs_file.read()
+        
+        progress = tqdm(total=len(entryIDs_file.replace(" ", "").split(',')))
 
         for pdb_id in entryIDs_file.replace(" ", "").split(','):
-            print(pdb_id)
+            # print(pdb_id)
             organism, gene_name, expression_system = get_base_data(entryID=pdb_id)
             
             pdb_entry = pdb_id
@@ -225,13 +229,13 @@ def main():
             try:
                 uniprotID = map_uniprot(pdb_id)
             except:
-                print(f'No uniprot ID for protein {pdb_id} available')
+                # print(f'No uniprot ID for protein {pdb_id} available')
                 uniprotID = None
             
             try:
                 pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=pdb_id, id_type="pdb")
                 
-                print(pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range)
+                # print(pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range)
                 
                 nu_sequence = ""
                 for(seqSTART, seqEND), (exon_range) in zip(allignment_range.values(), exon_shift_range.values()):
@@ -257,7 +261,7 @@ def main():
                         print(exon_range)
                     
                 nu_sequence = nu_sequence.replace('\n','')
-                print(nu_sequence, '\n')
+                # print(nu_sequence, '\n')
                 
                 if args.sql:
                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
@@ -273,18 +277,18 @@ def main():
                     
                 
             except:
-                print(f"Genomic coordinates for protein {pdb_id} not available!")
+                # print(f"Genomic coordinates for protein {pdb_id} not available!")
                 continue
             
             nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
             
-            print("\n\n")
+            # print("\n\n")
                 
             
             try:
                 uniprot_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=uniprotID, id_type="uniprot")
                 
-                print(pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range)
+                # print(pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range)
                 
                 nu_sequence = ""
                 for(seqSTART, seqEND), (exon_range) in zip(allignment_range.values(), exon_shift_range.values()):
@@ -310,7 +314,7 @@ def main():
                         print(exon_range)
                     
                 nu_sequence = nu_sequence.replace('\n','')
-                print(nu_sequence, '\n')
+                # print(nu_sequence, '\n')
                 
                 plddt = get_plddt(uniprotID=uniprotID)
                 
@@ -326,14 +330,12 @@ def main():
                     nucleotide_protein_seqs_df.to_csv(args.pandas, mode='a', index=False, header=False)
                     del nucleotide_protein_seqs_df
                     
-            except Error as e:
-                print('Error occurred - ', e)
-                print(f"Genomic coordinates for protein {uniprotID} not available!")
-                exit(1)
+            except:
+               # print(f"Genomic coordinates for protein {uniprotID} not available!")
+                continue
             
             nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-            
-            
+            progress.update(1)            
 
 if __name__ == '__main__':
     main()
