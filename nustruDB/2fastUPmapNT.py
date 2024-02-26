@@ -10,14 +10,18 @@ from Bio import Entrez
 from Bio import SeqIO
 
 from typing import List
+import logging
+logging.basicConfig(filename='/Users/dominiquefastus/Downloads/log.log',
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.DEBUG)
 
 from pandarallel import pandarallel
-
 pandarallel.initialize(progress_bar=True)
 
 overall_cds = []
 overall_protein_ids = []
-
 
 def retrieve_nucleotide_seq(entryID=None, protein_id=None):
     Entrez.email = "dominique.fastus@biochemistry.lu.se"    
@@ -72,6 +76,7 @@ def get_cds(data):
                 else:
                     continue
             except:
+                logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
                 continue
                         
         with open('/Users/dominiquefastus/Downloads/sequences.fasta', 'a') as f:
@@ -86,6 +91,7 @@ def get_cds(data):
         del new_data
         
     except:
+        logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
         pass
 
 def main():
