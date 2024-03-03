@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import argparse
 
 import pandas as pd 
 import numpy as np
@@ -11,11 +12,6 @@ from Bio import SeqIO
 
 from typing import List
 import logging
-logging.basicConfig(filename='/Users/dominiquefastus/Downloads/log.log',
-                    filemode='a',
-                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                    datefmt='%H:%M:%S',
-                    level=logging.DEBUG)
 
 from pandarallel import pandarallel
 pandarallel.initialize(progress_bar=True)
@@ -24,7 +20,7 @@ overall_cds = []
 overall_protein_ids = []
 
 def retrieve_nucleotide_seq(entryID=None, protein_id=None):
-    Entrez.email = "dominique.fastus@biochemistry.lu.se"    
+    Entrez.email = "dominique_philip.fastus.5766@student.lu.se"    
     
 
     with Entrez.efetch(db="nuccore", rettype="fasta_cds_na", retmode="text", id=entryID) as handle:
@@ -36,7 +32,7 @@ def retrieve_nucleotide_seq(entryID=None, protein_id=None):
     return head, sequence
 
 def retrieve_protein_seq(entryID=None):
-    Entrez.email = "dominique.fastus@biochemistry.lu.se"    
+    Entrez.email = "dominique_philip.fastus.5766@student.lu.se"    
     
     try:
         with Entrez.efetch(db="protein", rettype="fasta", retmode="text", id=entryID) as handle:
@@ -53,7 +49,7 @@ def retrieve_protein_seq(entryID=None):
                 
     return sequence
 
-def get_cds(data):
+def get_cds(data, output_path, name):
     id = str(data['nucleotide_id']).strip().replace('"', '').replace(' ', '')
     id_list = id.split(';')
     del id_list[-1]
@@ -79,14 +75,14 @@ def get_cds(data):
                 logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
                 continue
                         
-        with open('/Users/dominiquefastus/Downloads/sequences.fasta', 'a') as f:
-            f.write(f'>{matched_id}\n{matched_seq}\n')
+        with open(f'{output_path}/{name}.fasta', 'a') as f:
+            f.write(f'>{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n')
 
         data['nucleotide_sequence'] = matched_seq
         data[['nucleotide_id','nucleotide_sequence']] = data['nucleotide_sequence'].split(':')
         new_data = pd.DataFrame({'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
                                 'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence']}, index=[0])
-        new_data.to_csv('/Users/dominiquefastus/Downloads/nucleotide_protein_seqs.csv', mode='a', index=False, header=False)
+        new_data.to_csv(f'{output_path}/{name}.csv', mode='a', index=False, header=False)
         del data
         del new_data
         
@@ -96,17 +92,40 @@ def get_cds(data):
 
 def main():
     
-    df = pd.read_csv('/Users/dominiquefastus/master_project/NuStru/nustruDB/uniprotkb_taxonomy_id_562_2024_02_19.tsv', sep='\t', header=0, nrows=400, dtype={"Subcellular location [CC]": object,
-                                                                                                                         "Alternative sequence": object})
+    parser = argparse.ArgumentParser(
+        prog='2fastUPmapNT.py',
+        description="Retrieve nucleotide sequences from uniprot IDs."
+    )
+    parser.add_argument(
+        '-i', '--input', type=str, dest="input_file", required=True,
+        help='Input file with uniprot IDs.'
+    )
+    parser.add_argument( 
+        '-o', '--output', type=str, dest="output_path", required=True,
+        help='Output file with nucleotide sequences.'
+    )
+    parser.add_argument(
+        '-n', '--name', type=str, dest="name", required=True,
+        help='Name of the output files and log file.'
+    )
+    args = parser.parse_args()
+    
+    logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.DEBUG)
+    
+    df = pd.read_csv(args.input_file, sep='\t', header=0, nrows=20, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
     df = df.replace(r'^\s*$', np.nan, regex=True)
 
     nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
     nucleotide_protein_seqs_df.columns = ['primary_id', 'gene_name', 'organism', 'expression_system', 'protein_sequence', 'nucleotide_id']
     
-    with open('/Users/dominiquefastus/Downloads/nucleotide_protein_seqs.csv', mode='w') as f:
+    with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
         f.write('primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
         
-    nucleotide_protein_seqs_df.parallel_apply(get_cds, axis=1)
+    nucleotide_protein_seqs_df.parallel_apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
     
 if __name__ == '__main__':
     main()
