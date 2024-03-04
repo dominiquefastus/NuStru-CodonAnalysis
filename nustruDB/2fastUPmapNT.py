@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import argparse
 
 import pandas as pd 
@@ -116,7 +117,7 @@ def main():
     )
     parser.add_argument( 
         '-o', '--output', type=str, dest="output_path", required=True,
-        help='Output file with nucleotide sequences.'
+        help='Output path or directory to store the log file and the data.'
     )
     parser.add_argument(
         '-n', '--name', type=str, dest="name", required=True,

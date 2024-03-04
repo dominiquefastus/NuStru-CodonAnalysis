@@ -30,7 +30,7 @@ def connect_DB():
     
     return nustruDB
     
-def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
+def execute_database(DB, method, table, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
     if DB is None:
        logging.error("Database connection is not established.")
        exit(1)
@@ -40,9 +40,9 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
     if method == "INSERT":
         try:
             insert_entry = '''INSERT IGNORE INTO {} 
-                            (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt) 
+                            (source, primary_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence) 
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''.format(table)
-            entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt)
+            entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
             
             cursor.execute(insert_entry, entry)
             DB.commit()
@@ -55,8 +55,8 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
             update_entry = '''UPDATE {} 
                             SET source = %s, primary_id = %s, gene_name = %s, organism = %s, expression_system = %s,
                             mitochondrial = %s, protein_sequence = %s, nucleotide_id = %s, nucleotide_sequence = %s, 
-                            plddt = %s, WHERE primary_id = %s'''.format(table)
-            entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt)
+                            WHERE primary_id = %s'''.format(table)
+            entry = (source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence)
             
             cursor.execute(update_entry, entry)
             DB.commit()
@@ -64,10 +64,10 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
            logging.info(f'Entry {entry_id} not successfully updated in {table}!')
            pass
         
-def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence, plddt):
+def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
     try:
         df = df._append({"source": source, "primary_id": entry_id, "gene_name": gene_name, "organism": organism, "expression_system": expression_system, "mitochondrial": mitochondrial,
-                        "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence, "plddt": plddt}, ignore_index=True)
+                        "protein_sequence": protein_sequence, "nucleotide_id": nucleotide_id, "nucleotide_sequence": nucleotide_sequence}, ignore_index=True)
     except:
         logging.error(f'Entry {entry_id} not successfully inserted in pandas DataFrame!')
         pass
@@ -108,44 +108,46 @@ def get_base_data(entryID):
     return organism, gene_name, expression_system
        
 def get_allignment(entryID, id_type):
-    allignment_range = {}
-    exon_shift_range = {}
-    
-    if id_type == "pdb":
-        pdbID = entryID
+    try:
+        allignment_range = {}
+        exon_shift_range = {}
         
-        query = '{alignment(from: PDB_ENTITY, to: NCBI_GENOME, queryId: "%s" ) { query_sequence target_alignment { target_id orientation aligned_regions { query_begin query_end target_begin target_end exon_shift } } }}' % pdbID
+        if id_type == "pdb":
+            pdbID = entryID
+            
+            query = '{alignment(from: PDB_ENTITY, to: NCBI_GENOME, queryId: "%s" ) { query_sequence target_alignment { target_id orientation aligned_regions { query_begin query_end target_begin target_end exon_shift } } }}' % pdbID
+            
+        elif id_type == "uniprot":
+            uniprotID = entryID
+            
+            query = '{alignment(from: UNIPROT, to: NCBI_GENOME, queryId: "%s" ) { query_sequence target_alignment { target_id orientation aligned_regions { query_begin query_end target_begin target_end exon_shift } } }}' % uniprotID
+            
+        else:
+            raise Exception()
+            print("Specify provided id")
+            exit(1)
+            
+        # define graphql url from pdb
+        url = f'https://1d-coordinates.rcsb.org/graphql?query={query}'
         
-    elif id_type == "uniprot":
-        uniprotID = entryID
+        response = requests.get(url=url)
         
-        query = '{alignment(from: UNIPROT, to: NCBI_GENOME, queryId: "%s" ) { query_sequence target_alignment { target_id orientation aligned_regions { query_begin query_end target_begin target_end exon_shift } } }}' % uniprotID
-        
-    else:
-        raise Exception()
-        print("Specify provided id")
-        exit(1)
-        
-    # define graphql url from pdb
-    url = f'https://1d-coordinates.rcsb.org/graphql?query={query}'
-    
-    response = requests.get(url=url)
-    
-    # print("response status code: ", response.status_code)
-    
-    if response.status_code == 200:
-        response = json.loads(response.text)
-        
-        pdb_sequence = response['data']['alignment']['query_sequence']
-        genomeID = response['data']['alignment']['target_alignment'][0]['target_id']
-        oritentation = response['data']['alignment']['target_alignment'][0]['orientation']
-        
-        # loop through the sequence positions
-        for id, position in enumerate(response['data']['alignment']['target_alignment'][0]['aligned_regions']):
-            # print(position)
-            range = [position['target_begin'], position['target_end']]
-            exon_shift_range[id] = position['exon_shift']
-            allignment_range[id] = range
+        if response.status_code == 200:
+            response = json.loads(response.text)
+            
+            pdb_sequence = response['data']['alignment']['query_sequence']
+            genomeID = response['data']['alignment']['target_alignment'][0]['target_id']
+            oritentation = response['data']['alignment']['target_alignment'][0]['orientation']
+            
+            # loop through the sequence positions
+            for id, position in enumerate(response['data']['alignment']['target_alignment'][0]['aligned_regions']):
+                # print(position)
+                range = [position['target_begin'], position['target_end']]
+                exon_shift_range[id] = position['exon_shift']
+                allignment_range[id] = range
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        pass
       
     return pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range
     
@@ -181,21 +183,6 @@ def retrieve_nucleotide_seqs(genomeID=None, orientation=None, seqSTART=None, seq
     
     return handle.read().partition("\n")[2].strip()
 
-def get_plddt(uniprotID):
-    try:
-        ppdb = PandasPdb().fetch_pdb(uniprot_id=uniprotID, source="alphafold2-v2")
-        residue_b_factors = ppdb.df["ATOM"][["b_factor","residue_number"]]
-
-
-        residue_b_factors = residue_b_factors.groupby(["residue_number"]).mean().round(4)
-
-        residue_b_factors_dict = residue_b_factors.to_dict()
-    except:
-        logging.error(f'No plddt value for protein {uniprotID} available')
-        residue_b_factors_dict = {"b_factor": "NaN"}
-
-    return residue_b_factors_dict["b_factor"]
-
 def main():
     parser = argparse.ArgumentParser(
         prog="PDBmapNT",
@@ -221,7 +208,7 @@ def main():
         help='Name of the output files and log file.'
     )
     parser.add_argument(
-        '--map-uniprot', action="store_true", dest="map_uniprot", default=True,
+        '--map-uniprot', action="store_true", dest="map_uniprot", default=False,
         help="Map uniprot ID to nucleotide sequence."
     )
     args = parser.parse_args()
@@ -291,17 +278,18 @@ def main():
                 if args.sql:
                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
                                      expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
-                                     nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt="NaN")
+                                     nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                 else:
                     nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
                                                                expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
-                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt="NaN")
+                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                     
                     nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='a', index=False, header=False)
                     del nucleotide_protein_seqs_df
                     
                 
-            except:
+            except Exception as e:
+                logging.error(f"Error: {e}")
                 logging.error(f"Genomic coordinates for protein {pdb_id} not available!")
                 continue
             
@@ -336,21 +324,20 @@ def main():
                         
                     nu_sequence = nu_sequence.replace('\n','')
                     
-                    plddt = get_plddt(uniprotID=uniprotID)
-                    
                     if args.sql:
                         execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
                                         expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
-                                        nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt="NaN")
+                                        nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                     else:
                         nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
                                                                 expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
-                                                                nucleotide_id=genomeID, nucleotide_sequence=nu_sequence, plddt=plddt)
+                                                                nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                         
                         nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='a', index=False, header=False)
                         del nucleotide_protein_seqs_df
                         
-                except:
+                except Exception as e:
+                    logging.error(f"Error: {e}")
                     logging.error(f"Genomic coordinates for protein {uniprotID} not available!")
                     continue
             
