@@ -275,6 +275,9 @@ def main():
                     
                 nu_sequence = nu_sequence.replace('\n','')
                 
+                with open(f'{args.output_path}/{args.name}.fasta', 'a') as f:
+                    f.write(f'>{pdb_entry}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
+                    
                 if args.sql:
                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
                                      expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
