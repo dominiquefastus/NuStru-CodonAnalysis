@@ -87,11 +87,11 @@ def get_cds(data, output_path, name):
                     continue
                             
             with open(f'{output_path}/{name}.fasta', 'a') as f:
-                f.write(f'>{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n')
+                f.write(f'>{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n')
 
             data['nucleotide_sequence'] = matched_seq
             data[['nucleotide_id','nucleotide_sequence']] = data['nucleotide_sequence'].split(':')
-            new_data = pd.DataFrame({'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
+            new_data = pd.DataFrame({'source': 'uniprot', 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
                                     'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence']}, index=[0])
             new_data.to_csv(f'{output_path}/{name}.csv', mode='a', index=False, header=False)
             del data
@@ -131,16 +131,16 @@ def main():
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
     
-    df = pd.read_csv(args.input_file, sep='\t', header=0, nrows=40, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
+    df = pd.read_csv(args.input_file, sep='\t', header=0, nrows=10000, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
     df = df.replace(r'^\s*$', np.nan, regex=True)
 
     nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
     nucleotide_protein_seqs_df.columns = ['primary_id', 'gene_name', 'organism', 'expression_system', 'protein_sequence', 'nucleotide_id']
     
     with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
-        f.write('primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
+        f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
         
-    nucleotide_protein_seqs_df.parallel_apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
+    nucleotide_protein_seqs_df.apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
     
 if __name__ == '__main__':
     main()
