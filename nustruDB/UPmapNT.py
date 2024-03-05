@@ -283,6 +283,9 @@ def main():
                             
                             protein_response_sequence = filter_sequence(sequences=protein_response_sequence,searchID=[protein_id])
                             isoform_protein_sequences.append(protein_response_sequence[0][1])
+                            
+                            with open(f'{args.output_path}/{args.name}.fasta', 'a') as f:
+                                f.write(f'>{isoform_id}| {cds_id} {organism}\n{nt_response_sequences[0][1]}\n')
                     
                             if args.sql:
                                 execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=isoform_id, gene_name=gene_name, organism=organism, 
@@ -309,6 +312,9 @@ def main():
                                 response_sequences = retrieve_nucleotide_seq(entryID=cds_id, rettype="fasta_cds_na")
                                 
                                 matched_id, matched_seq = filter_sequence(sequences=response_sequences,searchID=[uniprotID, protein_id])[0]
+                                
+                                with open(f'{args.output_path}/{args.name}.fasta', 'a') as f:
+                                    f.write(f'>{uniprotID}| {cds_id} {organism}\n{matched_seq}\n')
                                 
                                 if args.sql:
                                     execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
