@@ -47,7 +47,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
             cursor.execute(insert_entry, entry)
             DB.commit()
         except:
-            logging.info(f'Entry {entry_id} not successfully inserted in {table} of SQL database!')
+            logging.error(f'Entry {entry_id} not successfully inserted in {table} of SQL database!')
             pass
         
     elif method == "UPDATE":
@@ -61,7 +61,7 @@ def execute_database(DB, method, table, source, entry_id, gene_name, organism, e
             cursor.execute(update_entry, entry)
             DB.commit()
         except:
-           logging.info(f'Entry {entry_id} not successfully updated in {table}!')
+           logging.error(f'Entry {entry_id} not successfully updated in {table}!')
            pass
         
 def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, mitochondrial, protein_sequence, nucleotide_id, nucleotide_sequence):
@@ -145,8 +145,7 @@ def get_allignment(entryID, id_type):
                 range = [position['target_begin'], position['target_end']]
                 exon_shift_range[id] = position['exon_shift']
                 allignment_range[id] = range
-    except Exception as e:
-        logging.error(f"Error: {e}")
+    except:
         pass
       
     return pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range
@@ -186,7 +185,7 @@ def retrieve_nucleotide_seqs(genomeID=None, orientation=None, seqSTART=None, seq
 def main():
     parser = argparse.ArgumentParser(
         prog="PDBmapNT",
-        description="Maps PDB ID to nucleotide sequence and prints an allignment of the pdb protein sequence to the nucleotide sequence"
+        description="Map PDB ID to nucleotide sequence and prints an allignment of the pdb protein sequence to the nucleotide sequence"
     )
     parser.add_argument(
         '-i', '--input', required=True, type=str, dest="entryID",
@@ -291,8 +290,7 @@ def main():
                     del nucleotide_protein_seqs_df
                     
                 
-            except Exception as e:
-                logging.error(f"Error: {e}")
+            except:
                 logging.error(f"Genomic coordinates for protein {pdb_id} not available!")
                 continue
             
@@ -339,8 +337,7 @@ def main():
                         nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='a', index=False, header=False)
                         del nucleotide_protein_seqs_df
                         
-                except Exception as e:
-                    logging.error(f"Error: {e}")
+                except:
                     logging.error(f"Genomic coordinates for protein {uniprotID} not available!")
                     continue
             
