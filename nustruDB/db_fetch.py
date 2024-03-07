@@ -24,7 +24,7 @@ def fetch_pdb_and_plddt(data):
         residue_plddt = residue_plddt.groupby(["residue_number"]).mean().round(4)
 
         residue_plddt_dict = residue_plddt.to_dict()
-        data['plddt'] = residue_plddt_dict
+        data['bfactor_or_plddt'] = residue_plddt_dict
         
     else:
         ppdb = PandasPdb().fetch_pdb(pdb_code=data['primary_id'], source="pdb")
@@ -34,11 +34,7 @@ def fetch_pdb_and_plddt(data):
 
         residue_b_factor_dict = residue_b_factor.to_dict()
         
-        data['plddt'] = residue_b_factor_dict
-
-    new_data = pd.DataFrame({'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
-                            'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'plddt': data['plddt']})
-    new_data.to_csv('/Users/dominiquefastus/Downloads/structure_info.csv', mode='a', index=False, header=False)
+        data['bfactor_or_plddt'] = residue_b_factor_dict
     
     ppdb.to_pdb(path='/Users/dominiquefastus/Downloads/{}.pdb'.format(data['primary_id']))
 
@@ -46,10 +42,15 @@ def fetch_pdb_and_plddt(data):
     structure = p.get_structure(data["primary_id"], "/Users/dominiquefastus/Downloads/{}.pdb".format(data['primary_id']))
     model = structure[0]
     dssp = DSSP(model, "/Users/dominiquefastus/Downloads/{}.pdb".format(data['primary_id']))
-    a_key = list(dssp.keys())[2]
-    dssp[a_key]
+    secondary_structure = "".join([dssp_data[2] for dssp_data in dssp])
+    data['secondary_structure'] = secondary_structure
+
+    new_data = pd.DataFrame({'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
+                            'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'bfactor_or_plddt': data['bfactor_or_plddt'], 'secondary_structure': data['secondary_structure']})
+    new_data.to_csv('/Users/dominiquefastus/Downloads/structure_info.csv', mode='a', index=False, header=False)
 
 
 with open('/Users/dominiquefastus/Downloads/structure_info.csv', mode='w') as f:
-    f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,plddt,secondary_structure\n')
-nucleotide_protein_seqs_df.parallel_apply(fetch_pdb_and_plddt, axis=1)
+    f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
+    
+nucleotide_protein_seqs_df.apply(fetch_pdb_and_plddt, axis=1)
