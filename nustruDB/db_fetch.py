@@ -5,19 +5,29 @@ import argparse
 import pandas as pd
 import numpy as np
 
+from urllib.request import urlretrieve
+from urllib.error import HTTPError
+
 from biopandas.pdb import PandasPdb 
 
 from Bio.PDB import PDBParser
+from Bio.PDB import MMCIFParser
 from Bio.PDB.DSSP import DSSP
 
 from pandarallel import pandarallel
 pandarallel.initialize(progress_bar=True)
 
 def fetch_pdb_and_plddt(data, output_path, name):
-    p = PDBParser(QUIET=True)
+    pdbp = PDBParser(QUIET=True)
+    cifp = MMCIFParser(QUIET=True)
+    
     if data['source'] == 'uniprot':
         print(data['primary_id'])
         ppdb = PandasPdb().fetch_pdb(uniprot_id=data['primary_id'], source="alphafold2-v4")
+        
+        af2_version = 4
+        urlretrieve(f"https://alphafold.ebi.ac.uk/files/AF-{data['primary_id']}-F1-model_v{af2_version}.cif", f"{output_path}/{data['primary_id']}.cif")
+        
         residue_plddt = ppdb.df["ATOM"][["b_factor","residue_number"]]
 
 
@@ -29,6 +39,9 @@ def fetch_pdb_and_plddt(data, output_path, name):
     else:
         print(data['primary_id'])
         ppdb = PandasPdb().fetch_pdb(pdb_code=data['primary_id'], source="pdb")
+        
+        urlretrieve(f"https://files.rcsb.org/download/{data["primary_id"]}.cif", f"{output_path}/{data['primary_id']}.cif")
+        
         residue_b_factor = ppdb.df["ATOM"][["b_factor","residue_number"]]
         
         residue_b_factor = residue_b_factor.groupby(["residue_number"]).mean().round(4)
@@ -40,14 +53,12 @@ def fetch_pdb_and_plddt(data, output_path, name):
 
     ppdb.to_pdb(path=f'{output_path}/{data['primary_id']}.pdb')
 
-    try:
-        structure = p.get_structure(data["primary_id"], f"{output_path}/{data['primary_id']}.pdb")
-        model = structure[0]
-        dssp = DSSP(model, f"{output_path}/{data['primary_id']}.pdb")
-        secondary_structure = "".join([dssp_data[2] for dssp_data in dssp])
-        data['secondary_structure'] = secondary_structure
-    except:
-        data['secondary_structure'] = 'NaN'
+    
+    structure = cifp.get_structure(data["primary_id"], f"{output_path}/{data['primary_id']}.cif")
+    model = structure[0]
+    dssp = DSSP(model, f"{output_path}/{data['primary_id']}.cif")
+    secondary_structure = "".join([dssp_data[2] for dssp_data in dssp])
+    data['secondary_structure'] = secondary_structure
 
     new_data = pd.DataFrame({'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
                             'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'bfactor_or_plddt': data['bfactor_or_plddt'], 'secondary_structure': data['secondary_structure']})
