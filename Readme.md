@@ -20,4 +20,24 @@ conda env create -f nustru-environment.yml
 ```
 
 ## Setup to create nustruDB database
-Both PDB and Uniprot provide coding sequences for the deployed proteins, but follow different mapping to the nucleotide sequence.
+Both PDB and Uniprot provide coding sequences for the deployed proteins, but follow different mapping strategies to the nucleotide sequence.
+
+To create the database from PDB, a graphql api is used to fetch the nucleotide sequences. The coding sequence of the protein is annotated with the start of the nucleotide sequence, the end of the nucleotide sequence, the strand and eventual exon shifts from the NCBI nt database. The database is created with the following command:
+
+```
+usage: PDBmapNT [-h] -i ENTRYID [--sql] [--pandas] -o OUTPUT_PATH -n NAME [--map-uniprot]
+
+Map PDB ID to nucleotide sequence and prints an allignment of the pdb protein sequence to the nucleotide sequence
+
+options:
+  -h, --help            show this help message and exit
+  -i ENTRYID, --input ENTRYID
+                        Path to file containing PDB IDs with comma separation.
+  --sql                 Store the data in a SQL database.
+  --pandas              Store the data in a pandas DataFrame.
+  -o OUTPUT_PATH, --output OUTPUT_PATH
+                        Output path or directory to store the log file and the data.
+  -n NAME, --name NAME  Name of the output files and log file.
+  --map-uniprot         Map uniprot ID to nucleotide sequence.
+## Evolutionary Analysis of Protein and Nucleotide Sequences
+```
