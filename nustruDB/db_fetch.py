@@ -5,6 +5,8 @@ import argparse
 import pandas as pd
 import numpy as np
 
+from pathlib import Path
+
 from urllib.request import urlretrieve
 from urllib.error import HTTPError
 
@@ -21,12 +23,15 @@ def fetch_pdb_and_plddt(data, output_path, name):
     pdbp = PDBParser(QUIET=True)
     cifp = MMCIFParser(QUIET=True)
     
+    Path(f'{output_path}/pdb_files').mkdir(parents=True, exist_ok=True)
+    Path(f'{output_path}/cif_files').mkdir(parents=True, exist_ok=True)
+    
     if data['source'] == 'uniprot':
         print(data['primary_id'])
         ppdb = PandasPdb().fetch_pdb(uniprot_id=data['primary_id'], source="alphafold2-v4")
         
         af2_version = 4
-        urlretrieve(f"https://alphafold.ebi.ac.uk/files/AF-{data['primary_id']}-F1-model_v{af2_version}.cif", f"{output_path}/{data['primary_id']}.cif")
+        urlretrieve(f"https://alphafold.ebi.ac.uk/files/AF-{data['primary_id']}-F1-model_v{af2_version}.cif", f"{output_path}/cif_files/{data['primary_id']}.cif")
         
         residue_plddt = ppdb.df["ATOM"][["b_factor","residue_number"]]
 
@@ -40,7 +45,8 @@ def fetch_pdb_and_plddt(data, output_path, name):
         print(data['primary_id'])
         ppdb = PandasPdb().fetch_pdb(pdb_code=data['primary_id'], source="pdb")
         
-        urlretrieve(f"https://files.rcsb.org/download/{data["primary_id"]}.cif", f"{output_path}/{data['primary_id']}.cif")
+        Path(f'{output_path}/pdb_files').mkdir(parents=True, exist_ok=True)
+        urlretrieve(f"https://files.rcsb.org/download/{data["primary_id"]}.cif", f"{output_path}/cif_files/{data['primary_id']}.cif")
         
         residue_b_factor = ppdb.df["ATOM"][["b_factor","residue_number"]]
         
@@ -51,10 +57,9 @@ def fetch_pdb_and_plddt(data, output_path, name):
         data['bfactor_or_plddt'] = residue_b_factor_dict
     
 
-    ppdb.to_pdb(path=f'{output_path}/{data['primary_id']}.pdb')
+    ppdb.to_pdb(path=f'{output_path}/pdb_files/{data['primary_id']}.pdb')
 
-    
-    structure = cifp.get_structure(data["primary_id"], f"{output_path}/{data['primary_id']}.cif")
+    structure = cifp.get_structure(data["primary_id"], f"{output_path}/cif_files/{data['primary_id']}.cif")
     model = structure[0]
     dssp = DSSP(model, f"{output_path}/{data['primary_id']}.cif")
     secondary_structure = "".join([dssp_data[2] for dssp_data in dssp])
