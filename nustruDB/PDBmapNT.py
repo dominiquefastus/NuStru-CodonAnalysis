@@ -76,7 +76,7 @@ def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, 
 
 def get_base_data(entryID):
     try:
-        query = '{entry(entry_id: "%s") { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } rcsb_entity_host_organism { ncbi_scientific_name } } }}' % entryID
+        query = '{entry(entry_id: "%s") { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } rcsb_entity_host_organism { ncbi_scientific_name } } rcsb_entry_container_identifiers { polymer_entity_ids } }}' % entryID
         url = f'https://data.rcsb.org/graphql?query={query}'
         
         response = requests.get(url=url)
@@ -98,11 +98,36 @@ def get_base_data(entryID):
                 expression_system = response['data']['entry']['polymer_entities'][0]['rcsb_entity_host_organism'][0]['ncbi_scientific_name']
             except:
                 expression_system = "NaN"
+                
+            try:
+                polymer_entity_ids = response['data']['entry']['rcsb_entry_container_identifiers']['polymer_entity_ids']
+                pdb_entity_id_list = [entryID + '_' + entity_id for entity_id in polymer_entity_ids]
+            except: 
+                polymer_entity_ids = None
+                pdb_entity_id_list = None
     except:
         logging.error(f"Base data for protein {entryID} not available!")
         pass
+    
+    return organism, gene_name, expression_system, polymer_entity_ids, pdb_entity_id_list
+
+def map_entity_to_chains(entites, entryID):
+    pdb_chains_entity_list = []
+    for entity in entites:
+        query = '{polymer_entity(entity_id: "%s", entry_id: "%s") { rcsb_id entity_poly { pdbx_strand_id } }}' % (entity, entryID)
+        url = f'https://data.rcsb.org/graphql?query={query}'
         
-    return organism, gene_name, expression_system
+        response = requests.get(url=url)
+        
+        if response.status_code == 200:
+            response = json.loads(response.text)
+            pdbx_strand_id = response['data']['polymer_entity']['entity_poly']['pdbx_strand_id']
+            
+            pdb_chain_entity = entryID + '_' + pdbx_strand_id
+           
+            pdb_chains_entity_list.append(pdb_chain_entity)
+    
+    return pdb_chains_entity_list
        
 def get_allignment(entryID, id_type):
     try:
@@ -231,71 +256,21 @@ def main():
         progress = tqdm(total=len(entryIDs_file.replace(" ", "").split(',')))
 
         for pdb_id in entryIDs_file.replace(" ", "").split(','):
-            organism, gene_name, expression_system = get_base_data(entryID=pdb_id)
+            organism, gene_name, expression_system, polymer_entity_ids, pdb_entity_id_list = get_base_data(entryID=pdb_id)
+            pdb_chains_entity_list = map_entity_to_chains(entites=polymer_entity_ids, entryID=pdb_id)
             
-            pdb_entry = pdb_id
-            pdb_id = pdb_id + "_1"
+            for pdb_id, pdb_chain_id in zip(pdb_entity_id_list, pdb_chains_entity_list):
+                pdb_entry = pdb_chain_id
             
-            if args.map_uniprot:
+                if args.map_uniprot:
+                    try:
+                        uniprotID = map_uniprot(pdb_id)
+                    except:
+                        logging.error(f'No uniprot ID for protein {pdb_id} available')
+                        uniprotID = None
+                    
                 try:
-                    uniprotID = map_uniprot(pdb_id)
-                except:
-                    logging.error(f'No uniprot ID for protein {pdb_id} available')
-                    uniprotID = None
-            
-            try:
-                pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=pdb_id, id_type="pdb")
-                
-                nu_sequence = ""
-                for(seqSTART, seqEND), (exon_range) in zip(allignment_range.values(), exon_shift_range.values()):
-                    nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, orientation=oritentation, seqSTART=seqSTART, seqEND=seqEND)
-                    
-                    if len(exon_range) == 2:
-                        exonSTART = exon_range[0]
-                        exonEND = exon_range[1]
-                        
-                        nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, orientation=oritentation, seqSTART=exonSTART, seqEND=exonEND)
-                        
-                    elif len(exon_range) == 1:
-                        exonSTART = exon_range[0]
-                        exonEND = exon_range[0]
-                    
-                        
-                        nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, orientation=oritentation, seqSTART=exonSTART, seqEND=exonEND)
-                         
-                    elif len(exon_range) == 0:
-                        pass
-                    
-                    else:
-                        print(exon_range)
-                    
-                nu_sequence = nu_sequence.replace('\n','')
-                
-                with open(f'{args.output_path}/{args.name}.fasta', 'a') as f:
-                    f.write(f'>{pdb_entry}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
-                    
-                if args.sql:
-                    execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
-                                     expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
-                                     nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
-                else:
-                    nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
-                                                               expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
-                                                               nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
-                    
-                    nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='a', index=False, header=False)
-                    del nucleotide_protein_seqs_df
-                    
-                
-            except:
-                logging.error(f"Genomic coordinates for protein {pdb_id} not available!")
-                continue
-            
-            nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-                
-            if args.map_uniprot:
-                try:
-                    uniprot_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=uniprotID, id_type="uniprot")
+                    pdb_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=pdb_id, id_type="pdb")
                     
                     nu_sequence = ""
                     for(seqSTART, seqEND), (exon_range) in zip(allignment_range.values(), exon_shift_range.values()):
@@ -318,28 +293,79 @@ def main():
                             pass
                         
                         else:
-                            logging.error(f'The exon range was wrongly parsed, as it is: {exon_range}')
+                            print(exon_range)
                         
                     nu_sequence = nu_sequence.replace('\n','')
                     
+                    with open(f'{args.output_path}/{args.name}.fasta', 'a') as f:
+                        f.write(f'>{pdb_entry}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
+                        
                     if args.sql:
-                        execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
-                                        expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
+                        execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
+                                        expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
                                         nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                     else:
-                        nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
-                                                                expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
+                        nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
+                                                                expression_system=expression_system, mitochondrial="False", protein_sequence=pdb_sequence,
                                                                 nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
                         
                         nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='a', index=False, header=False)
                         del nucleotide_protein_seqs_df
                         
+                    
                 except:
-                    logging.error(f"Genomic coordinates for protein {uniprotID} not available!")
+                    logging.error(f"Genomic coordinates for protein {pdb_id} not available!")
                     continue
-            
-            nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-            progress.update(1)            
+                
+                nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
+                    
+                if args.map_uniprot:
+                    try:
+                        uniprot_sequence, genomeID, oritentation, allignment_range, exon_shift_range = get_allignment(entryID=uniprotID, id_type="uniprot")
+                        
+                        nu_sequence = ""
+                        for(seqSTART, seqEND), (exon_range) in zip(allignment_range.values(), exon_shift_range.values()):
+                            nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, orientation=oritentation, seqSTART=seqSTART, seqEND=seqEND)
+                            
+                            if len(exon_range) == 2:
+                                exonSTART = exon_range[0]
+                                exonEND = exon_range[1]
+                                
+                                nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, orientation=oritentation, seqSTART=exonSTART, seqEND=exonEND)
+                                
+                            elif len(exon_range) == 1:
+                                exonSTART = exon_range[0]
+                                exonEND = exon_range[0]
+                            
+                                
+                                nu_sequence += retrieve_nucleotide_seqs(genomeID=genomeID, orientation=oritentation, seqSTART=exonSTART, seqEND=exonEND)
+                                
+                            elif len(exon_range) == 0:
+                                pass
+                            
+                            else:
+                                logging.error(f'The exon range was wrongly parsed, as it is: {exon_range}')
+                            
+                        nu_sequence = nu_sequence.replace('\n','')
+                        
+                        if args.sql:
+                            execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                            expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
+                                            nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                        else:
+                            nucleotide_protein_seqs_df = insert_pandas(df=nucleotide_protein_seqs_df, source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
+                                                                    expression_system=expression_system, mitochondrial="False", protein_sequence=uniprot_sequence,
+                                                                    nucleotide_id=genomeID, nucleotide_sequence=nu_sequence)
+                            
+                            nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='a', index=False, header=False)
+                            del nucleotide_protein_seqs_df
+                            
+                    except:
+                        logging.error(f"Genomic coordinates for protein {uniprotID} not available!")
+                        continue
+                
+                nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
+                progress.update(1)            
 
 if __name__ == '__main__':
     main()
