@@ -76,11 +76,8 @@ def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, 
 
 def get_base_data(entryID):
     try:
-        url = rf"""https://data.rcsb.org/graphql?query=%7B%0A%20%20entry(entry_id%3A%20%22{entryID}%22)%20%7B%0A%20%20%20%20rcsb_id%0A%20
-        %20%20%20polymer_entities%20%7B%0A%20%20%20%20%20%20rcsb_entity_source_organism%20%7B%0A%20%20%20%20%20%20%20%20scientific_name
-        %0A%20%20%20%20%20%20%20%20ncbi_scientific_name%0A%20%20%20%20%20%20%20%20rcsb_gene_name%20%7B%0A%20%20%20%20%20%20%20%20%20
-        %20value%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20rcsb_entity_host_organism%20%7B%0A%20%20%20%20
-        %20%20%20%20ncbi_scientific_name%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0A"""
+        query = '{entry(entry_id: "%s") { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } rcsb_entity_host_organism { ncbi_scientific_name } } }}' % entryID
+        url = f'https://data.rcsb.org/graphql?query={query}'
         
         response = requests.get(url=url)
 
