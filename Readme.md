@@ -39,5 +39,32 @@ options:
                         Output path or directory to store the log file and the data.
   -n NAME, --name NAME  Name of the output files and log file.
   --map-uniprot         Map uniprot ID to nucleotide sequence.
-## Evolutionary Analysis of Protein and Nucleotide Sequences
 ```
+
+Test the pdb mapping with the following command:
+```
+python PDBmapNT.py -i nustruDB/Example/example1_pdbIDs.txt --pandas -o /home/usr/ -n pdb_example1
+```
+\
+To create the database from Uniprot, the nucleotide sequence is fetched from the NCBI nt database. The refered Genebank ID or EMBL ID is used to fetch the nucleotide sequence. Two scripts are provided, but while the first one follows a similiar strategy as the pdb mapping with only providing uniprot ids (see `nustruDB/Example/example1_uniprotIDs.txt`), the second script takes in a predefined list (see `nustruDB/Example/example1_uniprotList.tsv`). The list has to be downloaded manualy at the uniprot database page. The database is then created with the following command:
+
+```
+usage: 2fastUPmapNT.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME
+
+Retrieve nucleotide sequences from uniprot IDs.
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT_FILE, --input INPUT_FILE
+                        Input file with uniprot IDs.
+  -o OUTPUT_PATH, --output OUTPUT_PATH
+                        Output path or directory to store the log file and the data.
+  -n NAME, --name NAME  Name of the output files and log file.
+  ```
+
+Test the uniprot mapping with the following command:
+````
+python 2fastUPmapNT.py -i nustruDB/Example/example1_uniprotList.tsv -o /home/usr/ -n uniprot_example1
+````
+
+## Evolutionary Analysis of Protein and Nucleotide Sequences
