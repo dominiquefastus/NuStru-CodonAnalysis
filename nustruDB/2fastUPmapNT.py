@@ -60,6 +60,7 @@ def retrieve_protein_seq(entryID=None):
 
 def get_cds(data, output_path, name):
     try:
+        
         id = str(data['nucleotide_id']).strip().replace('"', '').replace(' ', '')
         id_list = id.split(';')
         del id_list[-1]
@@ -87,7 +88,7 @@ def get_cds(data, output_path, name):
                     continue
                             
             with open(f'{output_path}/{name}.fasta', 'a') as f:
-                f.write(f'>{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n')
+                f.write(f">{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n")
 
             data['nucleotide_sequence'] = matched_seq
             data[['nucleotide_id','nucleotide_sequence']] = data['nucleotide_sequence'].split(':')
@@ -131,7 +132,7 @@ def main():
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
     
-    df = pd.read_csv(args.input_file, sep='\t', header=0, nrows=10000, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
+    df = pd.read_csv(args.input_file, sep='\t', header=0, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
     df = df.replace(r'^\s*$', np.nan, regex=True)
 
     nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
@@ -140,7 +141,7 @@ def main():
     with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
         f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
         
-    nucleotide_protein_seqs_df.apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
+    nucleotide_protein_seqs_df.parallel_apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
     
 if __name__ == '__main__':
     main()
