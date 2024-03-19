@@ -8,14 +8,17 @@ import json
 import os
 
 import pandas as pd
-import multiprocessing as mp
-from itertools import islice
 
 from tqdm import tqdm
 
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
+from requests.adapters import HTTPAdapter, Retry
+
+session = requests.Session()
+retries = Retry(total=6, backoff_factor=0.2, status_forcelist=[ 502, 503, 504 ])
+session.mount('https://', HTTPAdapter(max_retries=retries))
 
 from Bio import Entrez
 from biopandas.pdb import PandasPdb 
@@ -79,7 +82,7 @@ def get_base_data(entryID):
         query = '{entry(entry_id: "%s") { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } rcsb_entity_host_organism { ncbi_scientific_name } } rcsb_entry_container_identifiers { polymer_entity_ids } }}' % entryID
         url = f'https://data.rcsb.org/graphql?query={query}'
         
-        response = requests.get(url=url)
+        response = session.get(url=url)
 
         if response.status_code == 200:
             response = json.loads(response.text)
@@ -117,13 +120,13 @@ def map_entity_to_chains(entites, entryID):
         query = '{polymer_entity(entity_id: "%s", entry_id: "%s") { rcsb_id entity_poly { pdbx_strand_id } }}' % (entity, entryID)
         url = f'https://data.rcsb.org/graphql?query={query}'
         
-        response = requests.get(url=url)
+        response = session.get(url=url)
         
         if response.status_code == 200:
             response = json.loads(response.text)
             pdbx_strand_id = response['data']['polymer_entity']['entity_poly']['pdbx_strand_id']
             
-            pdb_chain_entity = entryID + '_' + pdbx_strand_id
+            pdb_chain_entity = entryID + '_' + pdbx_strand_id.split(',')[0]
            
             pdb_chains_entity_list.append(pdb_chain_entity)
     
@@ -145,14 +148,13 @@ def get_allignment(entryID, id_type):
             query = '{alignment(from: UNIPROT, to: NCBI_GENOME, queryId: "%s" ) { query_sequence target_alignment { target_id orientation aligned_regions { query_begin query_end target_begin target_end exon_shift } } }}' % uniprotID
             
         else:
-            raise Exception()
-            print("Specify provided id")
-            exit(1)
+            logging.error(f"ID type {id_type} not recognized!")
+            pass
             
         # define graphql url from pdb
         url = f'https://1d-coordinates.rcsb.org/graphql?query={query}'
         
-        response = requests.get(url=url)
+        response = session.get(url=url)
         
         if response.status_code == 200:
             response = json.loads(response.text)
@@ -178,7 +180,7 @@ def map_uniprot(pdbID):
     # define graphql url from pdb
     url = f'https://1d-coordinates.rcsb.org/graphql?query={query}'
     
-    response = requests.get(url=url)
+    response = session.get(url=url)
     
     if response.status_code == 200:
         response = json.loads(response.text)
@@ -238,7 +240,7 @@ def main():
         nustruDB = connect_DB()
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-        if not os.path.exists(args.pandas):
+        if not os.path.exists(f'{args.output_path}/{args.name}.csv'):
             nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='w', index=False, header=True)
     else:
         raise Exception("Please provide a way to store the data.")
