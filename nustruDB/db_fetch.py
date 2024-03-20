@@ -2,14 +2,19 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+
 import logging
 import pandas as pd
 import numpy as np
 
 from pathlib import Path
 
-from urllib.request import urlretrieve
-from urllib.error import HTTPError
+import requests
+from requests.adapters import HTTPAdapter, Retry
+
+session = requests.Session()
+retries = Retry(total=6, backoff_factor=0.2, status_forcelist=[ 502, 503, 504 ])
+session.mount('https://', HTTPAdapter(max_retries=retries))
 
 from biopandas.pdb import PandasPdb 
 
@@ -19,55 +24,69 @@ from Bio.PDB.DSSP import DSSP
 from pandarallel import pandarallel
 pandarallel.initialize(progress_bar=True)
 
-def fetch_pdb_and_plddt(data, output_path, name):
+def fetch_pdb_and_plddt(data, output_path, name, download=False):
     cifp = MMCIFParser(QUIET=True)
     
     Path(f'{output_path}/pdb_files').mkdir(parents=True, exist_ok=True)
     Path(f'{output_path}/cif_files').mkdir(parents=True, exist_ok=True)
-    
+
     try:
         if data['source'] == 'uniprot':
             model_id = data['primary_id']
-            ppdb = PandasPdb().fetch_pdb(uniprot_id=model_id, source="alphafold2-v4")
             
             try:
                 af2_version = 4
-                urlretrieve(f"https://alphafold.ebi.ac.uk/files/AF-{model_id}-F1-model_v{af2_version}.cif", f"{output_path}/cif_files/{model_id}.cif")
-            except HTTPError as e:
-                logging.error(f"Error: could not retrieve cif file for {model_id}.")
-                logging.error(e)
+                response_cif = session.get(f"https://alphafold.ebi.ac.uk/files/AF-{model_id}-F1-model_v{af2_version}.cif")
+                response_pdb = session.get(f"https://alphafold.ebi.ac.uk/files/AF-{model_id}-F1-model_v{af2_version}.pdb")
+                
+                if "Error" not in response_cif.text and "Error" not in response_pdb.text:           
+                    with open(f"{output_path}/cif_files/{model_id}.cif", "wb") as cif_file, open(f"{output_path}/pdb_files/{model_id}.pdb", "wb") as pdb_file:
+                        cif_file.write(response_cif.content)
+                        pdb_file.write(response_pdb.content)
+    
+                    ppdb = PandasPdb().read_pdb(f"{output_path}/pdb_files/{model_id}.pdb")
+                    
+                    residue_plddt = ppdb.df["ATOM"][["b_factor","residue_number"]]
+                    residue_plddt = residue_plddt.groupby(["residue_number"]).mean().round(4)
+                    residue_plddt_dict = residue_plddt.to_dict()
             
-            residue_plddt = ppdb.df["ATOM"][["b_factor","residue_number"]]
-
-
-            residue_plddt = residue_plddt.groupby(["residue_number"]).mean().round(4)
-
-            residue_plddt_dict = residue_plddt.to_dict()
-            data['bfactor_or_plddt'] = residue_plddt_dict
+                    data['bfactor_or_plddt'] = residue_plddt_dict
+                else:
+                    logging.error(f"Error: could not retrieve cif or file for {model_id}.")
+                    pass
+            except:
+                logging.error(f"Could not assign plddt to {model_id}.")
+                pass
             
         else:
             model_id = data['primary_id'].replace('"','').split("_")[0]
-            ppdb = PandasPdb().fetch_pdb(pdb_code=model_id, source="pdb")
-            
-            Path(f'{output_path}/pdb_files').mkdir(parents=True, exist_ok=True)
             
             try:
-                urlretrieve(f"https://files.rcsb.org/download/{model_id}.cif", f"{output_path}/cif_files/{model_id}.cif")
-            except HTTPError as e:
-                logging.error(f"Error: could not retrieve cif file for {model_id}.")
-                logging.error(e)
-            
-            residue_b_factor = ppdb.df["ATOM"][["b_factor","residue_number"]]
-            
-            residue_b_factor = residue_b_factor.groupby(["residue_number"]).mean().round(4)
-
-            residue_b_factor_dict = residue_b_factor.to_dict()
-            
-            data['bfactor_or_plddt'] = residue_b_factor_dict
+                response_cif = session.get(f"https://files.rcsb.org/download/{model_id}.cif")
+                response_pdb = session.get(f"https://files.rcsb.org/download/{model_id}.pdb")
+                
+                if "Error" not in response_cif.text and "Error" not in response_pdb.text:           
+                    with open(f"{output_path}/cif_files/{model_id}.cif", "wb") as cif_file, open(f"{output_path}/pdb_files/{model_id}.pdb", "wb") as pdb_file:
+                        cif_file.write(response_cif.content)
+                        pdb_file.write(response_pdb.content)
+                    
+                    ppdb = PandasPdb().read_pdb(f"{output_path}/pdb_files/{model_id}.pdb")
+                    
+                    residue_b_factor = ppdb.df["ATOM"][["b_factor","residue_number"]]
+                    residue_b_factor = residue_b_factor.groupby(["residue_number"]).mean().round(4)
+                    residue_b_factor_dict = residue_b_factor.to_dict()
+                    
+                    data['bfactor_or_plddt'] = residue_b_factor_dict
+                else:
+                    logging.error(f"Error: could not retrieve cif or pdb file for {model_id}.")
+                    pass
+            except:
+                logging.error(f"Could not assign plddt to {model_id}.")
+                pass
         
-
-        ppdb.to_pdb(path=f'{output_path}/pdb_files/{model_id}.pdb')
-
+        if not download:
+            Path(f'{output_path}/pdb_files/{model_id}.pdb').unlink()
+            
         structure = cifp.get_structure(model_id, f"{output_path}/cif_files/{model_id}.cif")
         model = structure[0]
         dssp = DSSP(model, f"{output_path}/cif_files/{model_id}.cif")
@@ -78,6 +97,10 @@ def fetch_pdb_and_plddt(data, output_path, name):
                                 'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'bfactor_or_plddt': data['bfactor_or_plddt'], 'secondary_structure': data['secondary_structure']})
         new_data.to_csv(f'{output_path}/{name}.csv', mode='a', index=False, header=False)
         del new_data
+        
+        if not download:
+            Path(f'{output_path}/cif_files/{model_id}.cif').unlink()
+            
     except:
         logging.error(f"Error: {data['primary_id']} not found.")
         pass
@@ -100,6 +123,10 @@ def main():
         '-n', '--name', type=str, dest="name", required=True,
         help='Name of the output files and log file.'
     )
+    parser.add_argument(
+        '-d', '--download', action="store_true", dest="download", required=False, default=False,
+        help='Download the pdb files.'
+    )
     args = parser.parse_args()
     
     logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',
@@ -113,7 +140,7 @@ def main():
     with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
         f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
         
-    nucleotide_protein_seqs_df.apply(lambda data: fetch_pdb_and_plddt(data=data, output_path=args.output_path, name=args.name), axis=1)
+    nucleotide_protein_seqs_df.parallel_apply(lambda data: fetch_pdb_and_plddt(data=data, output_path=args.output_path, name=args.name, download=args.download), axis=1)
     
 if __name__ == "__main__":
     main()
