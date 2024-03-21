@@ -234,6 +234,10 @@ def main():
         '--map-uniprot', action="store_true", dest="map_uniprot", default=False,
         help="Map uniprot ID to nucleotide sequence."
     )
+    parser.add_argument(
+        '--create-fasta', choices=['protein', 'nucleotide', 'all'], dest="create_fasta", default=False,
+        help="Create a fasta file with the nucleotide sequences, protein sequences or both."
+    )
     args = parser.parse_args()
     
     if args.sql:
@@ -299,8 +303,12 @@ def main():
                         
                     nu_sequence = nu_sequence.replace('\n','')
                     
-                    with open(f'{args.output_path}/{args.name}_pdb.fasta', 'a') as f:
-                        f.write(f'>{pdb_entry}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
+                    if args.create_fasta == "nucleotide" or args.create_fasta == "all":
+                        with open(f'{args.output_path}/{args.name}_nt_pdb.fasta', 'a') as f:
+                            f.write(f'>{pdb_entry}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
+                    if args.create_fasta == "protein" or args.create_fasta == "all":
+                        with open(f'{args.output_path}/{args.name}_prot_pdb.fasta', 'a') as f:
+                            f.write(f'>{pdb_entry}| {organism}\n{pdb_sequence}\n')
                         
                     if args.sql:
                         execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="pdb", entry_id=pdb_entry, gene_name=gene_name, organism=organism, 
@@ -344,14 +352,18 @@ def main():
                                 
                             elif len(exon_range) == 0:
                                 pass
-                            
+                             
                             else:
                                 logging.error(f'The exon range was wrongly parsed, as it is: {exon_range}')
                             
                         nu_sequence = nu_sequence.replace('\n','')
                         
-                        with open(f'{args.output_path}/{args.name}_uniprot.fasta', 'a') as file:
-                            file.write(f'>{uniprotID}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
+                        if args.create_fasta == "nucleotide" or args.create_fasta == "all":
+                            with open(f'{args.output_path}/{args.name}_nt_uniprot.fasta', 'a') as file:
+                                file.write(f'>{uniprotID}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
+                        if args.create_fasta == "protein" or args.create_fasta == "all":
+                            with open(f'{args.output_path}/{args.name}_prot_uniprot.fasta', 'a') as file:
+                                file.write(f'>{uniprotID}| {organism}\n{uniprot_sequence}\n')
                         
                         if args.sql:
                             execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
