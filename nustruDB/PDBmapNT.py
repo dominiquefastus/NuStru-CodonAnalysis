@@ -299,7 +299,7 @@ def main():
                         
                     nu_sequence = nu_sequence.replace('\n','')
                     
-                    with open(f'{args.output_path}/{args.name}.fasta', 'a') as f:
+                    with open(f'{args.output_path}/{args.name}_pdb.fasta', 'a') as f:
                         f.write(f'>{pdb_entry}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
                         
                     if args.sql:
@@ -349,6 +349,9 @@ def main():
                                 logging.error(f'The exon range was wrongly parsed, as it is: {exon_range}')
                             
                         nu_sequence = nu_sequence.replace('\n','')
+                        
+                        with open(f'{args.output_path}/{args.name}_uniprot.fasta', 'a') as file:
+                            file.write(f'>{uniprotID}| {genomeID} [{allignment_range}] [{exon_shift_range}] {organism}\n{nu_sequence}\n')
                         
                         if args.sql:
                             execute_database(DB=nustruDB, method="INSERT", table="nucleotide_protein_seqs", source="uniprot", entry_id=uniprotID, gene_name=gene_name, organism=organism, 
