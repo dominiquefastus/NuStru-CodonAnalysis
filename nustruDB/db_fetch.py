@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import shutil
 import argparse
 
 import logging
@@ -51,6 +51,13 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
                     residue_plddt_dict = residue_plddt.to_dict()
             
                     data['bfactor_or_plddt'] = residue_plddt_dict
+                    
+                    structure = cifp.get_structure(model_id, f"{output_path}/cif_files/{model_id}.cif")
+                    model = structure[0]
+                    dssp = DSSP(model, f"{output_path}/cif_files/{model_id}.cif")
+                    secondary_structure = "".join([dssp_data[2] for dssp_data in dssp])
+                    data['secondary_structure'] = secondary_structure
+                    
                 else:
                     logging.error(f"Error: could not retrieve cif or file for {model_id}.")
                     pass
@@ -60,6 +67,7 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
             
         else:
             model_id = data['primary_id'].replace('"','').split("_")[0]
+            chain_id = data['primary_id'].replace('"','').split("_")[1]
             
             try:
                 response_cif = session.get(f"https://files.rcsb.org/download/{model_id}.cif")
@@ -72,11 +80,18 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
                     
                     ppdb = PandasPdb().read_pdb(f"{output_path}/pdb_files/{model_id}.pdb")
                     
-                    residue_b_factor = ppdb.df["ATOM"][["b_factor","residue_number"]]
+                    residue_b_factor = ppdb.df["ATOM"][ppdb.df['ATOM']['chain_id'] == chain_id][["b_factor","residue_number"]]
                     residue_b_factor = residue_b_factor.groupby(["residue_number"]).mean().round(4)
                     residue_b_factor_dict = residue_b_factor.to_dict()
-                    
+                    residue_position = list(residue_b_factor_dict['b_factor'].keys())
                     data['bfactor_or_plddt'] = residue_b_factor_dict
+                    
+                    structure = cifp.get_structure(model_id, f"{output_path}/cif_files/{model_id}.cif")
+                    model = structure[0]
+                    dssp = DSSP(model, f"{output_path}/cif_files/{model_id}.cif")
+                    secondary_structure = "".join([dssp_data[2] for dssp_data in dssp if dssp_data[0] in residue_position])
+                    data['secondary_structure'] = secondary_structure
+                    
                 else:
                     logging.error(f"Error: could not retrieve cif or pdb file for {model_id}.")
                     pass
@@ -86,12 +101,6 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
         
         if not download:
             Path(f'{output_path}/pdb_files/{model_id}.pdb').unlink()
-            
-        structure = cifp.get_structure(model_id, f"{output_path}/cif_files/{model_id}.cif")
-        model = structure[0]
-        dssp = DSSP(model, f"{output_path}/cif_files/{model_id}.cif")
-        secondary_structure = "".join([dssp_data[2] for dssp_data in dssp])
-        data['secondary_structure'] = secondary_structure
 
         new_data = pd.DataFrame({'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
                                 'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'bfactor_or_plddt': data['bfactor_or_plddt'], 'secondary_structure': data['secondary_structure']})
@@ -141,6 +150,9 @@ def main():
         f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
         
     nucleotide_protein_seqs_df.parallel_apply(lambda data: fetch_pdb_and_plddt(data=data, output_path=args.output_path, name=args.name, download=args.download), axis=1)
-    
+    if not args.download:
+        shutil.rmtree(f'{args.output_path}/cif_files/')
+        shutil.rmtree(f'{args.output_path}/pdb_files/')
+        
 if __name__ == "__main__":
     main()
