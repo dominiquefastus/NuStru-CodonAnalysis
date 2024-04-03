@@ -22,6 +22,7 @@ conda env create -f nustru-environment.yml
 
 ## Setup to create nustruDB database
 Both PDB and Uniprot provide coding sequences for the deployed proteins, but follow different mapping strategies to the nucleotide sequence.
+<br />
 
 #### Create nustruDB for PDB data
 To create the database from PDB, a graphql api is used to fetch the nucleotide sequences. The coding sequence of the protein is annotated with the start of the nucleotide sequence, the end of the nucleotide sequence, the strand and eventual exon shifts from the NCBI nt database. The database is created with the following command:
@@ -46,8 +47,9 @@ options:
 Test the pdb mapping with the following command:
 ```
 python PDBmapNT.py -i nustruDB/Example/example1_pdbIDs.txt --pandas -o /home/usr/ -n pdb_example1
-```
-\
+``` 
+<br />
+
 #### Create nustruDB for Uniprot data
 To create the database from Uniprot, the nucleotide sequence is fetched from the NCBI nt database. The refered Genebank ID or EMBL ID is used to fetch the nucleotide sequence. Two scripts are provided, but while the first one follows a similiar strategy as the pdb mapping with only providing uniprot ids (see `nustruDB/Example/example1_uniprotIDs.txt`), the second script takes in a predefined list (see `nustruDB/Example/example1_uniprotList.tsv`). The list has to be downloaded manualy at the uniprot database page. The database is then created with the following command:
 
@@ -66,9 +68,10 @@ options:
   ```
 
 Test the uniprot mapping with the following command:
-````
+```
 python 2fastUPmapNT.py -i nustruDB/Example/example1_uniprotList.tsv -o /home/usr/ -n uniprot_example1
-````
+```
+<br />
 
 ### Assign secondary structure and other features to the entries (both PDB and Uniprot)
 To run this script, an installed version of the `DSSP` software is required. Try to install it with the following command.
@@ -80,8 +83,9 @@ On MacOS:
 ```
 brew install brewsci/bio/dssp
 ```
-\
-The script will create two additional columns with the b-factor for pdb entries or the pLDDT score for uniprote entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following command:
+<br />
+
+The script will create two additional columns with the b-factor for pdb entries or the pLDDT score for uniprot entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following command:
 
 ```
 usage: db_fetch.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-d]
@@ -96,10 +100,15 @@ options:
                         Output to store the new csv with secondary structure information.
   -n NAME, --name NAME  Name of the output files and log file.
   -d, --download        Download the pdb files.
-  ````
+```
 Test the secondary structure assignment with the following command:
-````
+```
 python db_fetch.py -i nustruDB/Example/example3_dbfetch.csv -o /home/usr/ -n db_fetched_example3 [to keep files -d]
-````
+```
+<br />
+
+
+### Filter the entries for the analysis
+The dataframe or database contains many redundant entries. To reduce the redundancy and also wrong translations, the entries are filtered by the following criteria:
 
 ## Evolutionary Analysis of Protein and Nucleotide Sequences
