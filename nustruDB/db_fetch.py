@@ -100,8 +100,7 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
                 else:
                     logging.error(f"Error: could not retrieve cif or file for {model_id}.")
                     pass
-            except Exception as e: 
-                logging.error(e)
+            except: 
                 logging.error(f"Could not assign plddt to {model_id}.")
                 pass
             
@@ -123,8 +122,7 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
                 else:
                     logging.error(f"Error: could not retrieve cif or pdb file for {model_id}.")
                     pass
-            except Exception as e:
-                logging.error(e)
+            except:
                 logging.error(f"Could not assign plddt to {model_id}.")
                 pass
         
