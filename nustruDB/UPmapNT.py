@@ -18,6 +18,11 @@ from tqdm import tqdm
 import mysql.connector
 from mysql.connector import Error
 from getpass import getpass
+from requests.adapters import HTTPAdapter, Retry
+
+session = requests.Session()
+retries = Retry(total=6, backoff_factor=0.2, status_forcelist=[ 502, 503, 504 ])
+session.mount('https://', HTTPAdapter(max_retries=retries))
 
 from Bio import Entrez
 from biopandas.pdb import PandasPdb 
@@ -88,7 +93,7 @@ def get_base_data(uniprotID):
     try:
         base_data = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=gene_primary,sequence,organism_name,cc_subcellular_location' %uniprotID
         
-        response = requests.get(base_data)
+        response = session.get(base_data)
             
         if response.status_code == 200:
             
@@ -134,7 +139,7 @@ def filter_sequence(sequences: str, searchID: List) -> None:
 def check_isoform(uniprotID):
     url_gene = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=cc_alternative_products' %uniprotID
 
-    response_gene = requests.get(url_gene)
+    response_gene = session.get(url_gene)
 
     if response_gene.status_code == 200: 
         response = json.loads(response_gene.text)
@@ -148,7 +153,7 @@ def check_isoform(uniprotID):
 def get_isoform(uniprotID):
     url = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=xref_refseq' %uniprotID
 
-    response = requests.get(url=url)
+    response = session.get(url=url)
 
     # print("response status code: ", response.status_code)
 
@@ -184,7 +189,7 @@ def get_isoform(uniprotID):
 def get_cds(uniprotID):
     url_gene = 'https://rest.uniprot.org/uniprotkb/search?query=%s&fields=xref_embl' %uniprotID
 
-    response_gene = requests.get(url_gene)
+    response_gene = session.get(url_gene)
 
     if response_gene.status_code == 200: 
         cds_ids = []
@@ -234,10 +239,6 @@ def main():
     parser.add_argument(
         '-n', '--name', type=str, dest="name", required=True,
         help='Name of the output files and log file.'
-    )
-    parser.add_argument(
-        '--map-uniprot', action="store_true", dest="map_uniprot", default=False,
-        help="Map uniprot ID to nucleotide sequence."
     )
     args = parser.parse_args()
     
