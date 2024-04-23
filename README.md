@@ -1,6 +1,6 @@
 # NuStru - Nucleotide Codon Usage Bias Analysis on Protein Folding & Structure
 
-Mainly, the project aims to discover correlations between specific 3D motifs in the protein structure and a bias in the condons that encode these motiffs. It also explores the evolutionary implications of these biases. 
+Mainly, the project aims to discover correlations between specific motifs in the protein structure and a bias in the condons that encode these motiffs. It also explores the evolutionary implications of these biases. 
 
 ## Requirements
 The project is developed in Python 3.11 or later. The following packages are required to run the scripts in the project:
@@ -19,6 +19,17 @@ All packages are installed respictively in a conda environment. An environment w
 ```
 conda env create -f nustru-environment.yml
 ```
+<br />
+Some of the scripts require also external software packages to be installed. Which indludes:
+```
+dssp                    4.4.0
+mmseqs2                 15-6f452
+mafft                   7.525
+FastTree                2.1.11
+```
+
+While the installation procedure for these packages is mentioned in the specific sections, there is also a script provided to install all the required software packages at once. The script is run with the following command:
+
 
 ## Setup to create nustruDB database
 Both PDB and Uniprot provide coding sequences for the deployed proteins, but follow different mapping strategies to the nucleotide sequence.
@@ -48,7 +59,6 @@ Test the pdb mapping with the following command:
 ```
 python PDBmapNT.py -i nustruDB/Example/example1_pdbIDs.txt --pandas -o /home/usr/ -n pdb_example1
 ``` 
-<br />
 
 #### Create nustruDB for Uniprot data
 To create the database from Uniprot, the nucleotide sequence is fetched from the NCBI nt database. The refered Genebank ID or EMBL ID is used to fetch the nucleotide sequence. Two scripts are provided, but while the first one follows a similiar strategy as the pdb mapping with only providing uniprot ids (see `nustruDB/Example/example1_uniprotIDs.txt`), the second script takes in a predefined list (see `nustruDB/Example/example1_uniprotList.tsv`). The list has to be downloaded manualy at the uniprot database page. The database is then created with the following command:
