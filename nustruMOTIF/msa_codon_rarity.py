@@ -59,6 +59,43 @@ def fasta_to_array(fasta, align_to=None, codon=False):
     
     return all_seqs
 
+def cub_msa_table(prot_seq_arr=None, cod_seq_arr=None):
+    cub_table = {
+    # '*': {'TAA': None, 'TAG': None, 'TGA': None}, ignoring stop codons
+    'A': {'GCA': None, 'GCC': None, 'GCG': None, 'GCT': None},
+    'C': {'TGC': None, 'TGT': None},
+    'D': {'GAC': None, 'GAT': None},
+    'E': {'GAA': None, 'GAG': None},
+    'F': {'TTC': None, 'TTT': None},
+    'G': {'GGA': None, 'GGC': None, 'GGG': None, 'GGT': None},
+    'H': {'CAC': None, 'CAT': None},
+    'I': {'ATA': None, 'ATC': None, 'ATT': None},
+    'K': {'AAA': None, 'AAG': None},
+    'L': {'CTA': None, 'CTC': None, 'CTG': None, 'CTT': None, 'TTA': None, 'TTG': None},
+    'M': {'ATG': None},
+    'N': {'AAC': None, 'AAT': None},
+    'P': {'CCA': None, 'CCC': None, 'CCG': None, 'CCT': None},
+    'Q': {'CAA': None, 'CAG': None},
+    'R': {'AGA': None, 'AGG': None, 'CGA': None, 'CGC': None, 'CGG': None, 'CGT': None},
+    'S': {'AGC': None, 'AGT': None, 'TCA': None, 'TCC': None, 'TCG': None, 'TCT': None},
+    'T': {'ACA': None, 'ACC': None, 'ACG': None, 'ACT': None},
+    'V': {'GTA': None, 'GTC': None, 'GTG': None, 'GTT': None},
+    'W': {'TGG': None},
+    'Y': {'TAC': None, 'TAT': None}}
+    
+    for aa in cub_table.keys():
+        n_AA = np.count_nonzero(prot_seq_arr == aa)
+                
+        nc_AA = len(cub_table[aa].keys())
+        
+        for codon in cub_table[aa].keys():
+            nc = np.count_nonzero(cod_seq_arr == codon)
+            
+            fc =(nc / n_AA) * 1/nc_AA
+
+            cub_table[aa][codon] = round(fc,6)
+        
+    return cub_table
 
 def map_rarity(protein_alignment, nustrudb, e_coli_pct):
     codon_position_start = 0
