@@ -6,23 +6,21 @@ from Bio import SeqIO
 import python_codon_tables as pct
 import pandas as pd
 import numpy as np
-import pathlib
-import math
-import os 
+
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-name_of_protein_alignment = "test_ddla_protein_aligned.fasta"
-name_of_nucleotide_alignment = "test_ddla_nucleotide_aligned.fasta"
 
-working_dir = "/Users/dominiquefastus/master_project/NuStru/nustruEVOL/nustruTREE/MSA"
+name_of_protein_alignment = "rtx_prot_fam_ecoli_protein_aligned.fasta"
+name_of_nucleotide = "rtx_prot_fam_ecoli_nucleotide.fasta"
+
+working_dir = "/Users/dominiquefastus/Downloads/nustruTREE/MSA"
 
 protein_alignment = AlignIO.read(f"{working_dir}/{name_of_protein_alignment}", "fasta")
-nucleotide_alignment = SeqIO.parse(f"{working_dir}/{name_of_nucleotide_alignment}", "fasta")
-nustrudb = pd.read_csv("/Users/dominiquefastus/master_project/NuStru/nustruDB/DDLA_uniprot_sec_struct_04.csv")
+nucleotide_alignment = SeqIO.parse(f"{working_dir}/{name_of_nucleotide}", "fasta")
+
+nustrudb = pd.read_csv("/Users/dominiquefastus/Downloads/rtx_prot_fam_ecoli_secstru.csv")
 
 e_coli_pct = pct.get_codons_table("e_coli_316407")
 
@@ -97,7 +95,7 @@ def cub_msa_table(prot_seq_arr=None, cod_seq_arr=None):
         
     return cub_table
 
-def map_rarity(protein_alignment, nustrudb, e_coli_pct):
+def map_rarity(protein_alignment, nustrudb, cu_table):
     codon_position_start = 0
     alignment_value_matrix = np.zeros((len(protein_alignment), len(protein_alignment[0])))
     seq_name = [seq.id for seq in protein_alignment]
@@ -116,18 +114,24 @@ def map_rarity(protein_alignment, nustrudb, e_coli_pct):
                 position_adj = position - prot_position
                 
                 sequence = nustrudb[nustrudb["primary_id"] == seq]["nucleotide_sequence"].values[0]
-                alignment_value_matrix[i, position] = e_coli_pct[aa][sequence[position_adj*3:position_adj*3+3].upper()]
+                alignment_value_matrix[i, position] = cu_table[aa][sequence[position_adj*3:position_adj*3+3].upper()]
 
     residue_mean = []
-    for col_mean in np.mean(alignment_value_matrix, axis=0):
-        residue_mean.append(col_mean)
-        
+    for col_mean in np.sum(alignment_value_matrix, axis=0):
+        residue_mean.append(col_mean / len(seq_name))
+    
     return alignment_value_matrix, seq_name, seq_pos, residue_mean
 
-alignment_value_matrix, seq_name, seq_pos, residue_mean = map_rarity(protein_alignment, nustrudb, e_coli_pct)
+all_seqs_protein = fasta_to_array(protein_alignment, codon=False)
+all_seqs_nt = fasta_to_array(fasta=nucleotide_alignment, align_to=all_seqs_protein, codon=True)
 
+cub_msa_table_ddla = cub_msa_table(prot_seq_arr=all_seqs_protein, cod_seq_arr=all_seqs_nt)
+alignment_value_matrix, seq_name, seq_pos, residue_mean = map_rarity(protein_alignment, nustrudb, cub_msa_table_ddla)
+sorted_alignment_value_matrix = np.sort(alignment_value_matrix, axis=0)
+sorted_alignment_value_matrix = np.flip(sorted_alignment_value_matrix, axis=0)
 
-fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02)
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02)
+fig.add_trace((go.Heatmap(z=sorted_alignment_value_matrix, y=seq_name, colorscale="reds")), row=3, col=1)
 fig.add_trace((go.Heatmap(z=alignment_value_matrix, y=seq_name, colorscale="blues")), row=2, col=1)
-fig.add_trace((go.Bar(x=seq_pos, y=residue_mean)), row=1, col=1)
+fig.add_trace((go.Scatter(x=seq_pos, y=residue_mean, mode="lines", fill="toself", line=dict(color="royalblue"))), row=1, col=1)
 fig.show()
