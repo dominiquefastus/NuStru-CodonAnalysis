@@ -140,7 +140,7 @@ def main() -> None:
         help='Input file of aligned protein sequences in fasta format.'
     )
     parser.add_argument(
-        '-nt', '--nucleotide', type=str, dest="nt_fasta_file", required=True,
+        '-nt', '--nucleotide', type=str, dest="nt_fasta_file", required=False,
         help='''Input file of corresponding nucleotide sequences of the aligned protein sequence in fasta format. 
                 The nucleotide don't have to be aligned or ordered, but shoud have the same sequence identifiers as the protein alignment.'''
     )
@@ -160,9 +160,19 @@ def main() -> None:
     
     args = parser.parse_args()
     
-    protein_alignment = AlignIO.read(args.alignment_file, "fasta")
-    nucleotide_sequences = SeqIO.parse(args.nt_fasta_file, "fasta")
     nustrudb = pd.read_csv(args.nustruDB)
+    protein_alignment = AlignIO.read(args.alignment_file, "fasta")
+    
+    if args.nt_fasta_file is not None:
+        nucleotide_sequences = SeqIO.parse(args.nt_fasta_file, "fasta")
+    else:
+        for record in protein_alignment:
+            nucleotide_id = nustrudb.loc[nustrudb["primary_id"] == record.id]["nucleotide_id"].values[0]
+            nucleotide_sequence = nustrudb.loc[nustrudb["primary_id"] == record.id]["nucleotide_sequence"].values[0]
+            with open(f"{args.output_path}/nucleotide_sequences.fasta", "a") as f:
+                f.write(f">{nucleotide_id}\n{nucleotide_sequence}\n")
+        nucleotide_sequences = SeqIO.parse(f"{args.output_path}/nucleotide_sequences.fasta", "fasta")
+                
     
     all_seqs_protein = fasta_to_array(protein_alignment, codon=False)
     all_seqs_nt = fasta_to_array(fasta=nucleotide_sequences, align_to=all_seqs_protein, codon=True)
@@ -176,7 +186,7 @@ def main() -> None:
     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02)
     fig.add_trace((go.Heatmap(z=sorted_alignment_value_matrix, y=seq_name, colorscale="reds")), row=3, col=1)
     fig.add_trace((go.Heatmap(z=alignment_value_matrix, y=seq_name, colorscale="blues")), row=2, col=1)
-    fig.add_trace((go.Scatter(x=seq_pos, y=residue_max, mode="lines", fill="toself", line=dict(color="lightcoral"))), row=1, col=1)
+    fig.add_trace((go.Scatter(x=seq_pos, y=residue_max, mode="lines", fill="toself", line=dict(color="navy"))), row=1, col=1)
     fig.write_image(f"{args.output_path}/codon_rarity_heatmap.png")
     fig.write_html(f"{args.output_path}/codon_rarity_heatmap.html")
     
