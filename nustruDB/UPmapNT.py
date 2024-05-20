@@ -5,18 +5,15 @@ import argparse
 import requests
 import logging
 import json
-import os
 
 from typing import List
 
 import pandas as pd
-import multiprocessing as mp
-from itertools import islice
 
 from tqdm import tqdm
+from pathlib import Path
 
 import mysql.connector
-from mysql.connector import Error
 from getpass import getpass
 from requests.adapters import HTTPAdapter, Retry
 
@@ -240,14 +237,18 @@ def main():
         '-n', '--name', type=str, dest="name", required=True,
         help='Name of the output files and log file.'
     )
+    parser.add_argument(
+        '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
+        help='If file name already exists, overwrite it. Default is False.' 
+    )
     args = parser.parse_args()
     
     if args.sql:
         nustruDB = connect_DB()
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-        if not os.path.exists(args.pandas):
-            nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='w', index=False, header=True)
+        if Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
+                nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='w', index=False, header=True)
     else:
         raise Exception("Please provide a way to store the data.")
         exit(1)
@@ -264,7 +265,6 @@ def main():
         progress = tqdm(total=len(entryIDs_file.replace("\n", ",").split(',')))
 
         for uniprotID in entryIDs_file.replace("\n", ",").split(','):
-            # print(uniprotID)
             
             organism, gene_name, sequence = get_base_data(uniprotID)
     

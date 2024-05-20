@@ -27,7 +27,7 @@ from Bio.SeqUtils import seq1
 
 
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=True)
+pandarallel.initialize(progress_bar=True, nb_workers=10)
 
 def reassign_position(sequence, residue_position):
     substring = "".join(residue_position.values())
@@ -143,7 +143,6 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
         pass
 
 def main():
-    
     parser = argparse.ArgumentParser(
         prog='db_fetch.py',
         description="Fetch the pdb and map the plddt or bfactor to the protein sequence."
@@ -164,6 +163,10 @@ def main():
         '-d', '--download', action="store_true", dest="download", required=False, default=False,
         help='Download the pdb files.'
     )
+    parser.add_argument(
+        '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
+        help='If file name already exists, overwrite it. Default is False.' 
+    )
     args = parser.parse_args()
     
     logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',
@@ -174,8 +177,12 @@ def main():
     
     nucleotide_protein_seqs_df = pd.read_csv(args.input_file, index_col=False)
     
-    with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
-        f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
+    if not Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
+        with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
+            f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
+    else:
+        logging.error(f"Error: {args.output_path}/{args.name}.csv already exists. Use -w to overwrite.")
+        exit(1)
         
     nucleotide_protein_seqs_df.parallel_apply(lambda data: fetch_pdb_and_plddt(data=data, output_path=args.output_path, name=args.name, download=args.download), axis=1)
     

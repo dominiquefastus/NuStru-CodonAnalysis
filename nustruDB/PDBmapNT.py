@@ -5,14 +5,13 @@ import argparse
 import requests
 import logging
 import json
-import os
 
 import pandas as pd
 
 from tqdm import tqdm
+from pathlib import Path
 
 import mysql.connector
-from mysql.connector import Error
 from getpass import getpass
 from requests.adapters import HTTPAdapter, Retry
 
@@ -21,7 +20,6 @@ retries = Retry(total=6, backoff_factor=0.2, status_forcelist=[ 502, 503, 504 ])
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
 from Bio import Entrez
-from biopandas.pdb import PandasPdb 
 
 def connect_DB():
     nustruDB = mysql.connector.connect(
@@ -238,16 +236,20 @@ def main():
         '--create-fasta', choices=['protein', 'nucleotide', 'all'], dest="create_fasta", default=False,
         help="Create a fasta file with the nucleotide sequences, protein sequences or both."
     )
+    parser.add_argument(
+        '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
+        help='If file name already exists, overwrite it. Default is False.' 
+    )
     args = parser.parse_args()
     
     if args.sql:
         nustruDB = connect_DB()
     elif args.pandas:
         nucleotide_protein_seqs_df = pd.DataFrame(columns=["source", "primary_id", "gene_name", "organism", "expression_system", "mitochondrial", "protein_sequence", "nucleotide_id", "nucleotide_sequence"])
-        if not os.path.exists(f'{args.output_path}/{args.name}.csv'):
+        if Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
             nucleotide_protein_seqs_df.to_csv(f'{args.output_path}/{args.name}.csv', mode='w', index=False, header=True)
     else:
-        raise Exception("Please provide a way to store the data.")
+        print(f"Error: {args.output_path} already exists. Use -w to overwrite.")
         exit(1)
         
     logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',

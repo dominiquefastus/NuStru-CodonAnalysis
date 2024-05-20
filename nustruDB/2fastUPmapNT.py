@@ -11,16 +11,18 @@ pd.set_option('future.no_silent_downcasting', True)
 from Bio import Entrez
 from Bio import SeqIO
 
+from pathlib import Path
 from typing import List
 import logging
 
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=True)
+pandarallel.initialize(progress_bar=True, nb_workers=10)
 
 overall_cds = []
 overall_protein_ids = []
 
 def retrieve_nucleotide_seq(entryID=None, protein_id=None):
+    """Retrieve nucleotide sequence from NCBI nucleotide database."""
     Entrez.email = "dominique_philip.fastus.5766@student.lu.se"    
     
     try:
@@ -36,6 +38,7 @@ def retrieve_nucleotide_seq(entryID=None, protein_id=None):
     return head, sequence
 
 def retrieve_protein_seq(entryID=None):
+    """Retrieve protein sequence from NCBI protein database."""
     Entrez.email = "dominique_philip.fastus.5766@student.lu.se"    
     
     try:
@@ -59,6 +62,7 @@ def retrieve_protein_seq(entryID=None):
     return sequence
 
 def get_cds(data, output_path, name):
+    """Get CDS from uniprot IDs."""
     try:
         
         id = str(data['nucleotide_id']).strip().replace('"', '').replace(' ', '')
@@ -107,7 +111,6 @@ def get_cds(data, output_path, name):
         pass
 
 def main():
-    
     parser = argparse.ArgumentParser(
         prog='2fastUPmapNT.py',
         description="Retrieve nucleotide sequences from uniprot IDs."
@@ -124,6 +127,10 @@ def main():
         '-n', '--name', type=str, dest="name", required=True,
         help='Name of the output files and log file.'
     )
+    parser.add_argument(
+        '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
+        help='If file name already exists, overwrite it. Default is False.' 
+    )
     args = parser.parse_args()
     
     logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',
@@ -138,8 +145,12 @@ def main():
     nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
     nucleotide_protein_seqs_df.columns = ['primary_id', 'gene_name', 'organism', 'expression_system', 'protein_sequence', 'nucleotide_id']
     
-    with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
-        f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
+    if not Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
+        with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
+            f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
+    else:
+        logging.error(f"Error: {args.output_path}/{args.name}.csv already exists.")
+        exit(1)
         
     nucleotide_protein_seqs_df.parallel_apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
     

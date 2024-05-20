@@ -5,7 +5,7 @@ import zlib
 import requests
 import argparse
 import pandas as pd
-from xml.etree import ElementTree
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode
 from requests.adapters import HTTPAdapter, Retry
 
@@ -133,7 +133,7 @@ def get_id_mapping_results_search(url):
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog='2fastUPmapNT.py',
+        prog='fetchUPTSV.py',
         description="Retrieve nucleotide sequences from uniprot IDs."
     )
     parser.add_argument(
@@ -148,7 +148,10 @@ def main() -> None:
         '-n', '--name', type=str, dest="name", required=True,
         help='Name of the output file.'
     )
-    
+    parser.add_argument(
+        '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
+        help='If file name already exists, overwrite it. Default is False.' 
+    )
     args = parser.parse_args()
     
     with open(args.input_file, "r") as f:
@@ -164,7 +167,11 @@ def main() -> None:
     data = [line.split("\t") for line in results[1:]]
     df = pd.DataFrame(data, columns=columns)
     df.drop(columns=["From"], inplace=True)
-    df.to_csv(f"{args.output_path}/{args.name}.tsv", sep="\t", index=False)
+    if Path(args.output_path).exists() or args.overwrite:
+        df.to_csv(f"{args.output_path}/{args.name}.tsv", sep="\t", index=False)
+    else:
+        print(f"Error: {args.output_path} already exists. Use -w to overwrite.")
+        exit(1)
     
 if __name__ == "__main__":
     main()
