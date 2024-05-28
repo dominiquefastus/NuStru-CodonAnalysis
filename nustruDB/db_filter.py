@@ -12,26 +12,30 @@ from pandarallel import pandarallel
 pandarallel.initialize(progress_bar=True, nb_workers=8)
 
 def nucleotide_to_protein(data, output_path, name):
-    if data["nucleotide_sequence"][0:3] == "ATG":
-        if len(data["nucleotide_sequence"]) % 3 == 0:
-            if data["nucleotide_sequence"].count('A') + data["nucleotide_sequence"].count('T') + data["nucleotide_sequence"].count('G') + data["nucleotide_sequence"].count('C') == len(data["nucleotide_sequence"]):
-                translated_sequence = Seq(data["nucleotide_sequence"][0:-3]).translate()
+    if data['nucleotide_sequence'][0:3] == "ATG":
+        if len(data['nucleotide_sequence']) % 3 == 0:
+            if data['nucleotide_sequence'].count('A') + data['nucleotide_sequence'].count('T') + data['nucleotide_sequence'].count('G') + data['nucleotide_sequence'].count('C') == len(data['nucleotide_sequence']):
+                translated_sequence = Seq(data['nucleotide_sequence'][0:-3]).translate()
                 
-                if translated_sequence == data["protein_sequence"]:
+                if translated_sequence == data['protein_sequence']:
                     with open(f'{output_path}/{name}_protein.fasta', 'a') as f, open(f'{output_path}/{name}_nucleotide.fasta', 'a') as f2:
-                        f.write(f">{data["primary_id"]}\n{data["protein_sequence"]}\n")
-                        f2.write(f">{data["primary_id"]}\n{data["nucleotide_sequence"]}\n")
+                        f.write(f">{data['primary_id']}\n{data['protein_sequence']}\n")
+                        f2.write(f">{data['primary_id']}\n{data['nucleotide_sequence']}\n")
                         
-                    new_data = pd.DataFrame([{'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
+                    if "secondary_structure" in data.keys():
+                        new_data = pd.DataFrame([{'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
                             'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'bfactor_or_plddt': data['bfactor_or_plddt'], 'secondary_structure': data['secondary_structure']}])
+                    else:
+                        new_data = pd.DataFrame([{'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
+                                'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence']}])
                     new_data.to_csv(f'{output_path}/{name}.csv', mode='a', index=False, header=False)
                     del data, new_data
 
         else:
-            logging.error(f"Error: {data["primary_id"]} nucleotide sequence does not translate to protein sequence.")
+            logging.error(f"Error: {data['primary_id']} nucleotide sequence does not translate to protein sequence.")
             pass
     else:
-        logging.error(f"Error: {data["nucleotide_sequence"][0:3]} nucleotide sequence does not start with start codon.")
+        logging.error(f"Error: {data['nucleotide_sequence'][0:3]} nucleotide sequence does not start with start codon.")
         pass
         
 def main():

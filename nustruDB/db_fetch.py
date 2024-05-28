@@ -181,7 +181,7 @@ def main():
         with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
             f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
     else:
-        logging.error(f"Error: {args.output_path}/{args.name}.csv already exists. Use -w to overwrite.")
+        print(f"Error: {args.output_path} already exists. Use -w to overwrite.")
         exit(1)
         
     nucleotide_protein_seqs_df.parallel_apply(lambda data: fetch_pdb_and_plddt(data=data, output_path=args.output_path, name=args.name, download=args.download), axis=1)
