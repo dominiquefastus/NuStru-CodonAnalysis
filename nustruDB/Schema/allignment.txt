@@ -1,21 +1,23 @@
 {
-  alignment(from: %s, to: %s, queryId: "%s") {
-    query_sequence
-    target_alignment {
-      target_id
-      target_sequence
-      coverage {
-        query_coverage
-        query_length
-        target_coverage
-        target_length
+  "alignment": {
+    "from": "PDB_ENTITY",
+    "to": "NCBI_GENOME",
+    "queryId": "%s",
+    "query_sequence": "",
+    "target_alignment": [
+      {
+        "target_id": "",
+        "orientation": "",
+        "aligned_regions": [
+          {
+            "query_begin": "",
+            "query_end": "",
+            "target_begin": "",
+            "target_end": "",
+            "exon_shift": ""
+          }
+        ]
       }
-      aligned_regions {
-        query_begin
-        query_end
-        target_begin
-        target_end
-      }
-    }
+    ]
   }
 }

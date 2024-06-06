@@ -1,0 +1,18 @@
+{
+  entry(entry_id: "8HUA") {
+    rcsb_entry_container_identifiers {
+      polymer_entity_ids
+    }
+  }
+}
+
+------------------------------------------------------
+
+{
+  polymer_entity(entity_id: "1", entry_id: "8HUA") {
+   	rcsb_id
+    entity_poly {
+      pdbx_strand_id
+    }
+  }
+} 
