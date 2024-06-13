@@ -4,9 +4,20 @@
 is_installed() {
     if command -v $1 >/dev/null 2>&1; then
         echo "$1 already installed: $(which $1)"
-    else
-        echo "$1 not installed"
-        return 1
+    elif [[ "$unamestr" == 'Linux' ]]; then
+        if dpkg -l | grep -q "^ii  $1 "; then
+            echo "$1 already installed: $(dpkg -l | grep "^ii  $1 " | awk '{print $3}')"
+        else
+            echo "$1 not installed"
+            return 1
+        fi
+    elif [[ "$unamestr" == 'Darwin' ]]; then
+        if brew list --versions $1 > /dev/null; then
+            echo "$1 already installed: $(brew list --versions $1 | awk '{print $2}')"
+        else
+            echo "$1 not installed"
+            return 1
+        fi
     fi
 }
 
@@ -17,7 +28,7 @@ install_program() {
     fi
 
     if [[ "$unamestr" == 'Linux' ]]; then
-        sudo apt install $1
+        sudo apt-get install $1
     elif [[ "$unamestr" == 'Darwin' ]]; then
         brew install $1
     fi
@@ -32,7 +43,7 @@ install_program() {
 unamestr=$(uname)
 
 # Try to install the external programs automatically
+install_program dssp
 install_program mmseqs
 install_program mafft
 install_program fasttree
-install_program iqtree
