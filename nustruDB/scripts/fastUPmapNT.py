@@ -47,7 +47,8 @@ overall_protein_ids = []
 
 def retrieve_nucleotide_seq(entryID=None, protein_id=None):
     """Retrieve nucleotide sequence from NCBI nucleotide database"""
-    Entrez.email = "dominique_philip.fastus.5766@student.lu.se"    
+    Entrez.email = mail
+    Entrez.api_key = api_key
     
     try:
         # retrieve nucleotide sequence from NCBI nucleotide database (nuccore)
@@ -68,7 +69,8 @@ def retrieve_nucleotide_seq(entryID=None, protein_id=None):
 
 def retrieve_protein_seq(entryID=None):
     """Retrieve protein sequence from NCBI protein database"""
-    Entrez.email = "dominique_philip.fastus.5766@student.lu.se"    
+    Entrez.email = mail
+    Entrez.api_key = api_key
     
     try:
         try:
@@ -171,14 +173,27 @@ def main():
         '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
         help='If file name already exists, overwrite it. Default is False.' 
     )
+    parser.add_argument(
+        '-m', '--mail', type=str, dest="api_mail", required=True, default=False,
+        help='Provide mail for ncbi api account: https://ncbiinsights.ncbi.nlm.nih.gov/2017/11/02/new-api-keys-for-the-e-utilities/.' 
+    )
+    parser.add_argument(
+        '-k', '--key', type=str, dest="api_key", required=True, default=False,
+        help='Provide api key from ncbi api account: https://ncbiinsights.ncbi.nlm.nih.gov/2017/11/02/new-api-keys-for-the-e-utilities/.' 
+    )
     args = parser.parse_args()
     
-    # creat a log file
+    # create a log file
     logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',
                     filemode='a',
                     format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
+    
+    # define the global variables for the email and api key
+    global mail, api_key
+    mail = args.api_mail
+    api_key = args.api_key
     
     # read the input file and replace empty strings with NaN
     df = pd.read_csv(args.input_file, sep='\t', header=0, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})

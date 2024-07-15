@@ -50,7 +50,7 @@ from Bio.SeqUtils import seq1
 
 
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=True, nb_workers=10) 
+pandarallel.initialize(progress_bar=True, nb_workers=1) 
 
 def reassign_position(sequence, residue_position):
     """Match the residue position between the sequence and pdb file."""
@@ -77,14 +77,17 @@ def reassign_position(sequence, residue_position):
 
 def fetch_features(chain_id, sequence, output_path, model_id):
     """Fetch the bfactor and secondary structure from the pdb file."""
+
     # read the pdb file with PandasPdb
     ppdb = PandasPdb().read_pdb(f"{output_path}/pdb_files/{model_id}.pdb")
-     
+    
     # get the residue position and name from the pdb file
     residue_position = ppdb.df["ATOM"][ppdb.df['ATOM']['chain_id'] == chain_id][["residue_number","residue_name"]]
+    
     # group atoms by residue number and get the last residue name
     residue_position = residue_position.groupby(["residue_number"])["residue_name"].last().apply(seq1)
     residue_position_dict = residue_position.to_dict() # convert residue position to dictionary
+
     # reassign the residue position to the sequence as the pdb file can contain missing residues or different residue positions
     # otherwise the sequence starting from 1 would not match the pdb file
     residue_position_dict, number_dict = reassign_position(sequence=sequence, residue_position=residue_position_dict)
@@ -160,6 +163,7 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
             # assign the model id and chain id from the primary id
             model_id = data['primary_id'].replace('"','').split("_")[0]
             chain_id = data['primary_id'].replace('"','').split("_")[1]
+            chain_id = list(chain_id)[0] # only one chain id is mapped if multiple chains have the same protein sequence
             
             try:
                 # retrieve the cif and pdb files from the rcsb database api
@@ -167,13 +171,13 @@ def fetch_pdb_and_plddt(data, output_path, name, download=False):
                 response_pdb = session.get(f"https://files.rcsb.org/download/{model_id}.pdb")
                 
                 # write the the cif and pdb files to the cif_files and pdb_files directories if the response is not an error
-                if "Error" not in response_cif.text and "Error" not in response_pdb.text:           
+                if "Error" not in response_cif.text and "Error" not in response_pdb.text:        
                     with open(f"{output_path}/cif_files/{model_id}.cif", "wb") as cif_file, open(f"{output_path}/pdb_files/{model_id}.pdb", "wb") as pdb_file:
                         cif_file.write(response_cif.content)
                         pdb_file.write(response_pdb.content)
-                    
+
                     # again get the bfactor or plddt and secondary structure for the protein sequence as a dictionary based on the chain id
-                    residue_b_factor_dict,secondary_structure_dict = fetch_features(data=data, name=name, model_id=model_id, chain_id=chain_id, sequence=data['protein_sequence'], output_path=output_path)
+                    residue_b_factor_dict,secondary_structure_dict = fetch_features(model_id=model_id, chain_id=chain_id, sequence=data['protein_sequence'], output_path=output_path)
                     
                 else:
                     logging.error(f"Error: could not retrieve cif or pdb file for {model_id}.")
@@ -235,7 +239,7 @@ def main():
             level=logging.ERROR)
     
     # read the input file
-    nucleotide_protein_seqs_df = pd.read_csv(args.input_file, index_col=False)
+    nucleotide_protein_seqs_df = pd.read_csv(args.input_file, index_col=False, delimiter=';')
     
     # create the new csv file with the respective columns if it does not exist or the overwrite flag is set
     if not Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:

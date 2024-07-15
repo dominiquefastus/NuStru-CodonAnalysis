@@ -39,13 +39,14 @@ def nucleotide_to_protein(data, output_path, name):
     """Checks and writed matching nucleotide and protein sequence."""
     # check if the nucleotide sequence starts with start codon (normally ATG)
     if data['nucleotide_sequence'][0:3] == "ATG":
+  
         # check if the nucleotide sequence consists of an even number of codons
         if len(data['nucleotide_sequence']) % 3 == 0:
             # check if the nucleotide sequence consists of only A, T, G, C
             if data['nucleotide_sequence'].count('A') + data['nucleotide_sequence'].count('T') + data['nucleotide_sequence'].count('G') + data['nucleotide_sequence'].count('C') == len(data['nucleotide_sequence']):
                 # translate the nucleotide sequence to protein sequence without the stop codon
-                translated_sequence = Seq(data['nucleotide_sequence'][0:-3]).translate()
-                
+                translated_sequence = Seq(data['nucleotide_sequence']).translate() # changed to include stop codon
+       
                 # check if the translated protein sequence is equal to the protein sequence in the data
                 # then write the protein and nucleotide sequence to a fasta file
                 if translated_sequence == data['protein_sequence']:
