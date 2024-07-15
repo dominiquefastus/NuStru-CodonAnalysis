@@ -1,0 +1,6 @@
+primary_id,protein_sequence,nucleotide_id,nucleotide_sequence
+seq1,MAA,sn11,ATGGCAGCA
+seq2,MAA,sn12,ATGGCAGCA
+seq3,MAA,sn13,ATGGCCGCA
+seq4,MCA,sn14,ATGTGCGCA
+seq5,MCA,sn15,---TGTGCC
