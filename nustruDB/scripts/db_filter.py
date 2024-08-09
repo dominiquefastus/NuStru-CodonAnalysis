@@ -33,10 +33,10 @@ from pathlib import Path
 from Bio.Seq import Seq
 
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=True, nb_workers=8)
+pandarallel.initialize(progress_bar=True, nb_workers=8, verbose=0)
 
-def nucleotide_to_protein(data, output_path, name):
-    """Checks and writed matching nucleotide and protein sequence."""
+def filter_sequences(data, output_path, name, prot_fasta=True, nuc_fasta=True):
+    """Checks and writed matching nucleotide and protein sequence"""
     # check if the nucleotide sequence starts with start codon (normally ATG)
     if data['nucleotide_sequence'][0:3] == "ATG":
   
@@ -45,14 +45,18 @@ def nucleotide_to_protein(data, output_path, name):
             # check if the nucleotide sequence consists of only A, T, G, C
             if data['nucleotide_sequence'].count('A') + data['nucleotide_sequence'].count('T') + data['nucleotide_sequence'].count('G') + data['nucleotide_sequence'].count('C') == len(data['nucleotide_sequence']):
                 # translate the nucleotide sequence to protein sequence without the stop codon
-                translated_sequence = Seq(data['nucleotide_sequence']).translate() # changed to include stop codon
+                translated_sequence = Seq(data['nucleotide_sequence'][0:-3]).translate() # changed to include stop codon
        
                 # check if the translated protein sequence is equal to the protein sequence in the data
                 # then write the protein and nucleotide sequence to a fasta file
                 if translated_sequence == data['protein_sequence']:
-                    with open(f'{output_path}/{name}_protein.fasta', 'a') as f, open(f'{output_path}/{name}_nucleotide.fasta', 'a') as f2:
-                        f.write(f">{data['primary_id']}\n{data['protein_sequence']}\n")
-                        f2.write(f">{data['primary_id']}\n{data['nucleotide_sequence']}\n")
+                    # check if a protein and nucleotide fasta files should be created
+                    if prot_fasta:
+                        with open(f'{output_path}/{name}_protein.fasta', 'a') as f:
+                            f.write(f">{data['primary_id']}\n{data['protein_sequence']}\n")
+                    if nuc_fasta:
+                        with open(f'{output_path}/{name}_nucleotide.fasta', 'a') as f2:
+                            f2.write(f">{data['primary_id']}\n{data['nucleotide_sequence']}\n")
                     
                     # write the data to a new csv file filtered entries and delete the data to free memory
                     # if the data contains secondary structure, write it to the new csv file    
@@ -92,6 +96,10 @@ def main():
     parser.add_argument(
         '-u', '--unique', type=str, dest="unique", required=False,
         help='pssibility to drop duplicate. To keep duplicates use None. Default: organisms' 
+    ) 
+    parser.add_argument(
+        '--create-fasta', choices=['protein', 'nucleotide', 'all'], dest="create_fasta", default=False,
+        help="Create a fasta file with the nucleotide sequences, protein sequences or both."
     )
     parser.add_argument(
         '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
@@ -106,13 +114,13 @@ def main():
             level=logging.ERROR)
 
     # read the csv file as input
-    df = pd.read_csv(args.input_file)
+    nucleotide_protein_seqs_df = pd.read_csv(args.input_file)
     
     # create the new csv file with the respective columns if it does not exist or the overwrite flag is set
     # write the header to the new csv file depending on the columns in the data
     if not Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
         with open(f'{args.output_path}/{args.name}.csv', mode='w') as f:
-            if "secondary_structure" in df.columns:
+            if "secondary_structure" in nucleotide_protein_seqs_df.columns:
                 f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence,bfactor_or_plddt,secondary_structure\n')
             else:
                 f.write('source,primary_id,gene_name,organism,expression_system,protein_sequence,nucleotide_id,nucleotide_sequence\n')
@@ -121,7 +129,7 @@ def main():
         exit(1)
         
     # apply the nucleotide_to_protein function to filter the data in parallel
-    df.parallel_apply(lambda data: nucleotide_to_protein(data=data, output_path=args.output_path, name=args.name), axis=1)
+    nucleotide_protein_seqs_df.parallel_apply(lambda data: filter_sequences(data=data, output_path=args.output_path, name=args.name), axis=1)
     
     # remove duplicates by a column from the new csv file and overwrite the new csv file if the flag is set
     if args.unique is not None:

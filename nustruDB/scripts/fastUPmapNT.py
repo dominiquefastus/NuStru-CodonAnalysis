@@ -39,118 +39,124 @@ import logging
 # set the number of workers for parallel processing to 10 (maximum for API requests limit per second)
 # if the computer has less cores, all cores will be used
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=True, nb_workers=10)
+pandarallel.initialize(progress_bar=True, nb_workers=10, verbose=0)
 
 # lists to store cds and protein ids for ncbi
 overall_cds = []
 overall_protein_ids = []
 
-def retrieve_nucleotide_seq(entryID=None, protein_id=None):
-    """Retrieve nucleotide sequence from NCBI nucleotide database"""
-    Entrez.email = mail
-    Entrez.api_key = api_key
-    
-    try:
-        # retrieve nucleotide sequence from NCBI nucleotide database (nuccore)
-        # retmode="text" returns the sequence in plain text and rettype="fasta_cds_na" returns the coding sequence
-        with Entrez.efetch(db="nuccore", rettype="fasta_cds_na", retmode="text", id=entryID) as handle:
-            # loop over the records in the fasta file and check if the protein id is in the description
-            # sometimes the protein id has a wrong numbering, so we check for the correct one as well
-            for seq_record in SeqIO.parse(handle, "fasta"):
-                if protein_id in seq_record.description or protein_id.replace('.2', '.1') in seq_record.description:
-                    # assign the header and sequence to variables
-                    head = seq_record.id + seq_record.description
-                    sequence = f'{entryID}:{seq_record.seq}'
-    except:
-        logging.error(f"Error: Nucleotide sequence {entryID} not found.")
-        pass
-
-    return head, sequence
-
-def retrieve_protein_seq(entryID=None):
-    """Retrieve protein sequence from NCBI protein database"""
-    Entrez.email = mail
-    Entrez.api_key = api_key
-    
-    try:
+class UPmapperNT:
+    def __init__(self, mail, api_key) -> None:
+        self.mail = mail
+        self.api_key = api_key
+            
+    def retrieve_nucleotide_seq(self, entryID=None, protein_id=None):
+        """Retrieve nucleotide sequence from NCBI nucleotide database"""
+        Entrez.email = self.mail
+        Entrez.api_key = self.api_key
+        
         try:
-            # retrieve protein sequence from NCBI protein database (protein)
-            # retmode="text" returns the sequence in plain text
-            with Entrez.efetch(db="protein", rettype="fasta", retmode="text", id=entryID) as handle:
-                for seq_record in SeqIO.parse(handle, "fasta"):
-                    sequence = seq_record.seq
-        except:
-            # check if the protein is a .1 or .2 version and retrieve the other version
-            # so we try both versions to fetch the protein sequence
-            if ".2" in entryID:
-                entryID = entryID.replace('.2',".1")
-            else:
-                entryID = entryID.replace('.1',".2")
-            with Entrez.efetch(db="protein", rettype="fasta", retmode="text", id=entryID) as handle:
+            # retrieve nucleotide sequence from NCBI nucleotide database (nuccore)
+            # retmode="text" returns the sequence in plain text and rettype="fasta_cds_na" returns the coding sequence
+            with Entrez.efetch(db="nuccore", rettype="fasta_cds_na", retmode="text", id=entryID) as handle:
                 # loop over the records in the fasta file and check if the protein id is in the description
+                # sometimes the protein id has a wrong numbering, so we check for the correct one as well
                 for seq_record in SeqIO.parse(handle, "fasta"):
-                    sequence = seq_record.seq
-    except:
-        logging.error(f"Error: Protein sequence {entryID} not found.")
-        pass
-                
-    return sequence
+                    if protein_id in seq_record.description or protein_id.replace('.2', '.1') in seq_record.description:
+                        # assign the header and sequence to variables
+                        head = seq_record.id + seq_record.description
+                        sequence = f'{entryID}:{seq_record.seq}'
+        except:
+            logging.error(f"Error: Nucleotide sequence {entryID} not found.")
+            pass
 
-def get_cds(data, output_path, name):
-    """Get CDS from uniprot IDs"""
-    try:
-        # split the nucleotide id string in the dataframe and remove parantheses and whitespaces
-        id = str(data['nucleotide_id']).strip().replace('"', '').replace(' ', '') # plain id
-        id_list = id.split(';') # split the id string into a list by the semicolon
-        del id_list[-1] # remove the last element of the list, which is an empty string
-        
-        # get the cds ids, protein ids and status from the id list by iterating over the list with different step sizes
-        cds_ids = id_list[0::4]
-        protein_ids = id_list[1::4]
-        status = id_list[2::4]
-        
+        return head, sequence
+
+    def retrieve_protein_seq(self, entryID=None):
+        """Retrieve protein sequence from NCBI protein database"""
+        Entrez.email = self.mail
+        Entrez.api_key = self.api_key
         
         try:
-            # loop over the cds ids, protein ids and status to get the correct cds and protein id
-            for cds_id, protein_id, status in zip(cds_ids, protein_ids, status):
-                try:
-                    # only if the status is empty, meaning no conflicts in the mapping, the cds and protein id are correct
-                    if status == '-': 
-                        # check if the protein sequence from uniprot matches the annotated protein sequence from ncbi           
-                        if retrieve_protein_seq(protein_id) == data['protein_sequence']:
-                            # if the proteins match, retrieve the referring nucleotide coding sequence from ncbi
-                            matched_id, matched_seq = retrieve_nucleotide_seq(cds_id, protein_id)
-                            break  
+            try:
+                # retrieve protein sequence from NCBI protein database (protein)
+                # retmode="text" returns the sequence in plain text
+                with Entrez.efetch(db="protein", rettype="fasta", retmode="text", id=entryID) as handle:
+                    for seq_record in SeqIO.parse(handle, "fasta"):
+                        sequence = seq_record.seq
+            except:
+                # check if the protein is a .1 or .2 version and retrieve the other version
+                # so we try both versions to fetch the protein sequence
+                if ".2" in entryID:
+                    entryID = entryID.replace('.2',".1")
+                else:
+                    entryID = entryID.replace('.1',".2")
+                with Entrez.efetch(db="protein", rettype="fasta", retmode="text", id=entryID) as handle:
+                    # loop over the records in the fasta file and check if the protein id is in the description
+                    for seq_record in SeqIO.parse(handle, "fasta"):
+                        sequence = seq_record.seq
+        except:
+            logging.error(f"Error: Protein sequence {entryID} not found.")
+            pass
+                    
+        return sequence
+
+    def get_cds(self, data, output_path, name):
+        """Get CDS from uniprot IDs"""
+        try:
+            # split the nucleotide id string in the dataframe and remove parantheses and whitespaces
+            id = str(data['nucleotide_id']).strip().replace('"', '').replace(' ', '') # plain id
+            id_list = id.split(';') # split the id string into a list by the semicolon
+            del id_list[-1] # remove the last element of the list, which is an empty string
+            
+            # get the cds ids, protein ids and status from the id list by iterating over the list with different step sizes
+            cds_ids = id_list[0::4]
+            protein_ids = id_list[1::4]
+            status = id_list[2::4]
+            
+            try:
+                # loop over the cds ids, protein ids and status to get the correct cds and protein id
+                for cds_id, protein_id, status in zip(cds_ids, protein_ids, status):
+                    try:
+                        # only if the status is empty, meaning no conflicts in the mapping, the cds and protein id are correct
+                        if status == '-': 
+                            # check if the protein sequence from uniprot matches the annotated protein sequence from ncbi           
+                            if self.retrieve_protein_seq(protein_id) == data['protein_sequence']:
+                                # if the proteins match, retrieve the referring nucleotide coding sequence from ncbi
+                                matched_id, matched_seq = self.retrieve_nucleotide_seq(cds_id, protein_id)
+                                break  
+                            else:
+                                continue
                         else:
                             continue
-                    else:
+                    except:
+                        # errors can be frameshifts, sequence conflicts, wrong translation, wrong cds id, etc.
+                        logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
                         continue
-                except:
-                    # errors can be frameshifts, sequence conflicts, wrong translation, wrong cds id, etc.
-                    logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
-                    continue
-                            
-            with open(f'{output_path}/{name}.fasta', 'a') as f: # write the nucleotide sequence to a fasta file
-                f.write(f">{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n")
+                                
+                with open(f'{output_path}/{name}.fasta', 'a') as f: # write the nucleotide sequence to a fasta file
+                    f.write(f">{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n")
 
-            data['nucleotide_sequence'] = matched_seq # assign the nucleotide sequence to the dataframe
-            # build a new dataframe with the data and write it to a csv file (append mode)
-            # avoiding dataloss during parallel processing (concurrent writes to the same file)
-            data[['nucleotide_id','nucleotide_sequence']] = data['nucleotide_sequence'].split(':')
-            new_data = pd.DataFrame({'source': 'uniprot', 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
-                                    'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence']}, index=[0])
-            new_data.to_csv(f'{output_path}/{name}.csv', mode='a', index=False, header=False)
-            # delete the dataframes to free memory
-            del data
-            del new_data
+                data['nucleotide_sequence'] = matched_seq # assign the nucleotide sequence to the dataframe
+                # build a new dataframe with the data and write it to a csv file (append mode)
+                # avoiding dataloss during parallel processing (concurrent writes to the same file)
+                data[['nucleotide_id','nucleotide_sequence']] = data['nucleotide_sequence'].split(':')
+                new_data = pd.DataFrame({'source': 'uniprot', 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
+                                        'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence']}, index=[0])
+                new_data.to_csv(f'{output_path}/{name}.csv', mode='a', index=False, header=False)
+                logging.info(f"Success: {data['primary_id']} nucleotide sequence retrieved.")
+                
+                # delete the dataframes to free memory
+                del data
+                del new_data
+                
+            except:
+                logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
+                pass
             
         except:
-            logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
+            logging.error(f"Error: CDS for {data['primary_id']} not available.")
             pass
-        
-    except:
-        logging.error(f"Error: CDS for {data['primary_id']} not available.")
-        pass
 
 def main():
     parser = argparse.ArgumentParser(
@@ -190,16 +196,11 @@ def main():
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
     
-    # define the global variables for the email and api key
-    global mail, api_key
-    mail = args.api_mail
-    api_key = args.api_key
-    
     # read the input file and replace empty strings with NaN
-    df = pd.read_csv(args.input_file, sep='\t', header=0, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
-    df = df.replace(r'^\s*$', np.nan, regex=True)
+    nucleotide_protein_seqs_df = pd.read_csv(args.input_file, sep='\t', header=0, dtype={"Subcellular location [CC]": object, "Alternative sequence": object})
+    nucleotide_protein_seqs_df = nucleotide_protein_seqs_df.replace(r'^\s*$', np.nan, regex=True)
 
-    nucleotide_protein_seqs_df = df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
+    nucleotide_protein_seqs_df = nucleotide_protein_seqs_df[['Entry', 'Gene Names (primary)', 'Organism', 'Subcellular location [CC]', 'Sequence', 'EMBL']]
     nucleotide_protein_seqs_df.columns = ['primary_id', 'gene_name', 'organism', 'expression_system', 'protein_sequence', 'nucleotide_id']
     
     # create a csv file with the header (columns)
@@ -209,9 +210,12 @@ def main():
     else:
         logging.error(f"Error: {args.output_path}/{args.name}.csv already exists.")
         exit(1)
-        
+    
+    # create an instance of the UPmapperNT class
+    mapper = UPmapperNT(mail=args.api_mail, api_key=args.api_key)
+    
     # apply the nucleotide sequence retrieval function in parallel to the dataframe using pandarallel
-    nucleotide_protein_seqs_df.parallel_apply(lambda data: get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
+    nucleotide_protein_seqs_df.parallel_apply(lambda data: mapper.get_cds(data=data, output_path=args.output_path, name=args.name), axis=1)
     
 if __name__ == '__main__':
     main()

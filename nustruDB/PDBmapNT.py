@@ -122,6 +122,7 @@ def get_base_data(entryID):
     try:
         # set up graphql query to get the organism, gene name, and expression system of the protein
         # the query is based on the entry ID of the protein and retrieves the entity ids (chains) of the protein
+        #  query = '{entry(entry_id: "%s")  { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } polymer_entity_instances { rcsb_polymer_instance_feature { type feature_id feature_positions { end_seq_id beg_seq_id } } } rcsb_entity_host_organism { ncbi_scientific_name } } rcsb_entry_container_identifiers { polymer_entity_ids } } }' % entryID
         query = '{entry(entry_id: "%s") { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } rcsb_entity_host_organism { ncbi_scientific_name } } rcsb_entry_container_identifiers { polymer_entity_ids } }}' % entryID
         url = f'https://data.rcsb.org/graphql?query={query}'
         
