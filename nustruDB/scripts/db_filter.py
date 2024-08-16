@@ -45,7 +45,12 @@ def filter_sequences(data, output_path, name, prot_fasta=True, nuc_fasta=True):
             # check if the nucleotide sequence consists of only A, T, G, C
             if data['nucleotide_sequence'].count('A') + data['nucleotide_sequence'].count('T') + data['nucleotide_sequence'].count('G') + data['nucleotide_sequence'].count('C') == len(data['nucleotide_sequence']):
                 # translate the nucleotide sequence to protein sequence without the stop codon
-                translated_sequence = Seq(data['nucleotide_sequence'][0:-3]).translate() # changed to include stop codon
+                
+                if data['source'] == 'pdb':
+                    # depending on the source, the nucleotide sequence is needed or not
+                    translated_sequence = Seq(data['nucleotide_sequence']).translate()
+                else:
+                    translated_sequence = Seq(data['nucleotide_sequence'][0:-3]).translate()
        
                 # check if the translated protein sequence is equal to the protein sequence in the data
                 # then write the protein and nucleotide sequence to a fasta file
@@ -60,6 +65,7 @@ def filter_sequences(data, output_path, name, prot_fasta=True, nuc_fasta=True):
                     
                     # write the data to a new csv file filtered entries and delete the data to free memory
                     # if the data contains secondary structure, write it to the new csv file    
+                    print("Ture")
                     if "secondary_structure" in data.keys():
                         new_data = pd.DataFrame([{'source': data['source'], 'primary_id': data['primary_id'], 'gene_name': data['gene_name'], 'organism': data['organism'], 'expression_system': data['expression_system'],
                             'protein_sequence': data['protein_sequence'], 'nucleotide_id': data['nucleotide_id'], 'nucleotide_sequence': data['nucleotide_sequence'], 'bfactor_or_plddt': data['bfactor_or_plddt'], 'secondary_structure': data['secondary_structure']}])

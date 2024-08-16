@@ -230,6 +230,9 @@ def main():
         '-w', '--overwrite', action="store_true", dest="overwrite", required=False, default=False,
         help='If file name already exists, overwrite it. Default is False.' 
     )
+    parser.add_argument(
+        '--delimiter', type=str, dest="delimiter", required=False, default=';',
+    )
     args = parser.parse_args()
     
     logging.basicConfig(filename=f'{args.output_path}/{args.name}.log',
@@ -239,7 +242,8 @@ def main():
             level=logging.ERROR)
     
     # read the input file
-    nucleotide_protein_seqs_df = pd.read_csv(args.input_file, index_col=False, delimiter=';')
+    nucleotide_protein_seqs_df = pd.read_csv(args.input_file, index_col=False, delimiter=args.delimiter)
+    print(nucleotide_protein_seqs_df.head())
     
     # create the new csv file with the respective columns if it does not exist or the overwrite flag is set
     if not Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
