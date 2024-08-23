@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Function to check if a program is installed
 is_installed() {
     if command -v $1 >/dev/null 2>&1; then
         echo "$1 already installed: $(which $1)"
@@ -21,7 +20,6 @@ is_installed() {
     fi
 }
 
-# Function to install a program
 install_program() {
     if is_installed $1; then
         return
@@ -42,8 +40,8 @@ install_program() {
 
 unamestr=$(uname)
 
-# Try to install the external programs automatically
 install_program dssp
+install_program mad
 install_program mmseqs
 install_program mafft
 install_program fasttree

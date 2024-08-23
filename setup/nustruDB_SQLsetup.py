@@ -21,7 +21,7 @@ def create_table():
     try:   
         sqlCursor = nustruDB.cursor()
         
-        # Create a table
+        # create a table
         sqlCursor.execute('''CREATE TABLE IF NOT EXISTS nucleotide_protein_seqs
                         (id INT AUTO_INCREMENT PRIMARY KEY,
                         source enum('pdb','uniprot'),
