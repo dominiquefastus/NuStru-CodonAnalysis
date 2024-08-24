@@ -243,7 +243,12 @@ def main():
     
     # read the input file
     nucleotide_protein_seqs_df = pd.read_csv(args.input_file, index_col=False, delimiter=args.delimiter)
-    print(nucleotide_protein_seqs_df.head())
+    
+    try:
+        nucleotide_protein_seqs_df['source']
+    except:
+        print("Error: The input file does not contain the right columns, please check the delimiter [--delimiter].")
+        exit(1)
     
     # create the new csv file with the respective columns if it does not exist or the overwrite flag is set
     if not Path(f'{args.output_path}/{args.name}.csv').exists() or args.overwrite:
