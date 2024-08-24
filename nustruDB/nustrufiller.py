@@ -24,7 +24,7 @@ from scripts.db_fetch import sequenceFeautureFetcher
 async def main():
     parser = argparse.ArgumentParser(
             prog='nustrufiller.py',
-            description="Retrieve nucleotide sequences from uniprot IDs."
+            description="Complete pipeline to fetch the data for uniprot IDs or interpro IDs (complete protein families)."
         )
     parser.add_argument(
         '-i', '--input', type=str, dest="input", required=True,
@@ -198,7 +198,7 @@ async def main():
         print(f"Error: {args.output_path}/{dir_name}_nustruDB already exists. Use -w to overwrite.")
         exit(1)
     
-    sequenceFF = sequenceFeautureFetcher() # initialize the sequence feature    
+    sequenceFF = sequenceFeautureFetcher() # initialize the sequence feature fetcher
     # apply the fetch_pdb_and_plddt function to get the features to the dataframe in parallel
     nucleotide_protein_seqs_df.parallel_apply(lambda data: sequenceFF.fetch_pdb_and_plddt(data=data, output_path=f"{args.output_path}/{dir_name}_nustruDB/", name=f"{args.name}_filtered_secstru", download=args.download), axis=1)
     

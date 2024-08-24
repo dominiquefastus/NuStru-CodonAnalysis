@@ -253,7 +253,7 @@ def main():
         print(f"Error: {args.output_path} already exists. Use -w to overwrite.")
         exit(1)
     
-    sequenceFF = sequenceFeautureFetcher() # initialize the sequence feature    
+    sequenceFF = sequenceFeautureFetcher() # initialize the sequence feature fetcher    
     # apply the fetch_pdb_and_plddt function to get the features to the dataframe in parallel
     nucleotide_protein_seqs_df.parallel_apply(lambda data: sequenceFF.fetch_pdb_and_plddt(data=data, output_path=args.output_path, name=args.name, download=args.download), axis=1)
     
