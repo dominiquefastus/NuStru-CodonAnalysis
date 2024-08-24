@@ -59,7 +59,7 @@ process_fasta() {
 
     FastTree "$working_dir/MSA/${working_name}_aligned.fasta" > "$working_dir/TREE/${working_name}.tree"
 
-    python "$mad_script" "$working_dir/MSA/$working_name.fasta"
+    python "$mad_script" "$working_dir/TREE/${working_name}.tree""
 
     echo "Pipeline completed successfully for $fasta_file."
 }
