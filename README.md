@@ -3,30 +3,26 @@
 Mainly, the project aims to discover correlations between specific motifs in the protein structure and a bias in the codons that encode these motifs. It also explores the evolutionary implications of these biases. 
 
 ## Requirements
-The project is developed in Python 3.11 or later. The following packages are required to run the scripts in the project:
+The project is developed in Python 3.11 or later. All packages are installed respictively in a conda environment. An environment with the required packages is provided in the `nustru_environment.yml` file. To create the environment, the following command can be run:
 ```
-python                    3.11.6 
-biopython                 1.81
-biopandas                 0.5.1.dev0 
-mysql-connector-python    8.3.0
-numpy                     1.26.0 
-pandas                    2.2.0 
-pandarallel               1.6.5
-tqdm                      4.66.1
+conda env create -f setup/nustru_environment.yml
 ```
-
-All packages are installed respictively in a conda environment. An environment with the required packages is provided in the `nustru-environment.yml` file. To create the environment, the following command can be run:
+For the phylegentic tree construction and analysis `ete3` is used, which has some specific installation dependencies. So the package should be installed in an extra environment. The environment with the required packages is provided in the `nustru-phyl_environment.yml` file. To create the environment, the following command can be run:
 ```
-conda env create -f setup/nustru-environment.yml
+conda env create -f setup/nustru-phyl_environment.yml
+```
+One additional package needs to be installed manually, as the CAI python package has some problems with pip installation. The package can be installed with the following command:
+```
+pip install git+https://github.com/Benjamin-Lee/CodonAdaptationIndex.git
 ```
 <br />
 Some of the scripts require also external software packages to be installed. Which indludes:
 
 ```
 dssp                    4.4.0
-mmseqs2                 15-6f452
-mafft                   7.525
 FastTree                2.1.11
+mad                     2.2 
+mafft                   7.525
 ```
 
 While the installation procedure for these packages is mentioned in the specific sections, there is also a script provided to install all the required software packages at once. The script is run with the following command:
@@ -36,12 +32,15 @@ bash setup/package_helper.sh
 
 otherwise try to install the packages with the following commands:
 ```
-sudo apt install [package_name] (like dssp, mafft, fasttree)
+sudo apt install [package_name] (like dssp, mafft, fasttree, mad)
 ```
 On MacOS:
 ```
-brew install [package_name] (like brewsci/bio/dssp, mafft, fasttree)
+brew install [package_name] (like brewsci/bio/dssp, mafft, fasttree, mad)
 ```
+<br />
+
+Sometimes mad can not be installed with these methods, so the source code can be downloaded from the website and installed manually. The source code can be found here: https://www.mikrobio.uni-kiel.de/de/ag-dagan/ressourcen
 
 # Nucleotide Structure Database (nustruDB)
 ## Complete data construction pipeline
