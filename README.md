@@ -16,7 +16,7 @@ One additional package needs to be installed manually, as the CAI python package
 pip install git+https://github.com/Benjamin-Lee/CodonAdaptationIndex.git
 ```
 <br />
-Some of the scripts require also external software packages to be installed. Which indludes:
+Some of the scripts require also external software packages to be installed. Which includes:
 
 ```
 dssp                    4.4.0
@@ -31,6 +31,7 @@ bash setup/package_helper.sh
 ```
 
 otherwise try to install the packages with the following commands:
+On Linux:
 ```
 sudo apt install [package_name] (like dssp, mafft, fasttree, mad)
 ```
@@ -44,7 +45,7 @@ Sometimes mad can not be installed with these methods, so the source code can be
 
 # Nucleotide Structure Database (nustruDB)
 ## Complete data construction pipeline
-To construct and filter the data in a more fast forward way, a pipeline script is provided. But alternatively if only parts of the pipeline are needed, the scripts can be run individually as described in the following sections. Several improvement have been made to parallelize and asynchronize the data fetching over API calls. Even pagination was used to limit the request as applicable. However, many website like ncbi limit API requests to around 3-10 requests per second and a account is needed. Dealing with hundred thousands of uniprot entries, this can slow down the process.
+To construct and filter the data in a more fast forward way, a pipeline script is provided. But alternatively if only parts of the pipeline are needed, the scripts can be run individually as described in the following sections. Several improvement have been made to parallelize and asynchronize the data fetching over API calls. Even pagination was used to limit the requests if applicable. However, many website like ncbi limit API requests to around 3-10 requests per second and a account is needed. Dealing with hundred thousands of uniprot entries, this can slow down the process.
 
 Note: Some of the script require an api key for ncbi to accelerate and parallelize the data fetching. The api key can be created following the website instructions: https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us. The scripts are optimized to use the api key and the mail address to fetch the data, if requested changes can be made to lower the request rate and avoid the api key.
 
@@ -54,12 +55,12 @@ The database construction follows the following steps for individual entries:
 - Filter the entries for wrong translations and redundancy
 - Assign secondary structure and other features to the entries
 
-The database construction follows the following steps for protein families (Only for Uniprot):
+The database construction follows the following steps for protein families (only for Uniprot):
 - Fetch protein members of family from InterPro
 - Fetch entries from Uniprot
 - rest is same as for individual entries
 
-While the individual scripts are described in the following sections, there is a complete pipeline script called `nustrufiller.py`. Based on the input single or list of uniprot id(s) or intepro id(s), it will fetch and construct the required data. The pipelin script can be run with the following command:
+While the individual scripts are described in the following sections, there is a complete pipeline script called `nustrufiller.py`. Based on the input, single or list of Uniprot id(s) or Intepro id(s), it will fetch and construct the required data. The pipeline script can be run with the following command:
 ```
 usage: nustrufiller.py [-h] -i INPUT -o OUTPUT_PATH [-n NAME] [-u UNIQUE] [-w] -m API_MAIL -k API_KEY [-d]
 
@@ -82,10 +83,10 @@ options:
   -d, --download        Download the structure files.
 ```
 
-Note: This pipeline script only works for Uniprot data. For PDB data, the script in "Create nustruDB for PDB data" section should be used.
+Note: This pipeline script only works for Uniprot data. For PDB data, the script in the "Create nustruDB for PDB data" section should be used.
 
 ## Individual steps to create nustruDB database 
-Both PDB and Uniprot provide coding sequences for the deployed proteins, but follow different mapping strategies to the nucleotide sequence.
+Both PDB and Uniprot provide coding sequences for the deployed protein structures, but follow different mapping strategies to the nucleotide sequence.
 <br />
 
 #### Create nustruDB for PDB data
@@ -117,7 +118,7 @@ python PDBmapNT.py -i Example/examples_nustruDB/example_pdbIDs.txt --pandas -o .
 ``` 
 
 #### Create nustruDB for Uniprot data
-To create the database from Uniprot, the nucleotide sequence is fetched from the NCBI nt database. The refered Genebank ID or EMBL ID is used to fetch the nucleotide sequence. Two scripts are provided, but while the first one follows a similiar strategy as the pdb mapping with only providing uniprot ids (see `nustruDB/Example/example1_uniprotIDs.txt`), the second script takes in a predefined list (see `nustruDB/Example/example1_uniprotList.tsv`).
+To create the database from Uniprot, the nucleotide sequence is fetched from the NCBI nt database. The refered Genebank ID or EMBL ID is used to fetch the nucleotide sequence. Two scripts are provided, but while the first one follows a similiar strategy as the PDB mapping with only providing Uniprot ids (see `nustruDB/Example/example1_uniprotIDs.txt`), the second script takes in a predefined list (see `nustruDB/Example/example1_uniprotList.tsv`).
 The database is then created with the following command:
 
 ##### Slow version (but complete)
@@ -191,7 +192,7 @@ python fastUPmapNT.py -i Example/examples_nustruDB/example_uniprotList.tsv -o . 
 <br />
 
 ### Filter the entries for the analysis
-The dataframe or database contains many redundant entries. To reduce the redundancy and also wrong translations from the nucleotide coding sequence, the entries are filtered by the following criteria. The coding sequence start with ATG, the coding sequence is dividable by a trinucleotide (codon), the coding sequence only contains valid nucleotides (A, T, C, G) and the coding sequence can be translated to the same assigned protein sequence. The script is called with the following command:
+The dataframe or database contains many redundant entries. To reduce the redundancy and also wrong translations from the nucleotide coding sequence, the entries are filtered by the following criteria: The coding sequence start with ATG, the coding sequence is dividable by a trinucleotide (codon), the coding sequence only contains valid nucleotides (A, T, C, G) and the coding sequence can be translated to the same assigned protein sequence. The script is called with the following command:
 
 ```
 usage: db_filter.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-u UNIQUE] [-w]
@@ -227,7 +228,7 @@ brew install brewsci/bio/dssp
 ```
 <br />
 
-The script will create two additional columns with the b-factor for pdb entries or the pLDDT score for uniprot entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following command:
+The script will create two additional columns with the b-factor for PDB entries or the pLDDT score for Uniprot entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following command:
 
 ```
 usage: db_fetch.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-d] [-w]
@@ -252,7 +253,7 @@ python db_fetch.py -i Example/examples_nustruDB/example_dbfetch.csv -o . -n exam
 
 ## Other scripts to obtain data
 ### Fetch the protein members of a protein family from InterPro
-Some of the analysis was done on whole protein families. While `nustrufiller.py` can be used to fetch the data and perform several data preperation steps automatically, the script `fetchInterPro.py` can be used to fetch the protein members of a protein family from InterPro family seperatelöy. The script is called with the following command:
+Some of the analysis was done on whole protein families. While `nustrufiller.py` can be used to fetch the data and perform several data preperation steps automatically, the script `fetchINPRO.py` can be used to fetch the protein members of a protein family from InterPro seperately. The script is called with the following command:
 
 ```
 usage: fetchINPRO.py [-h] -o OUTPUT_PATH [-w] family_id
@@ -268,7 +269,7 @@ options:
                         Output to store the interpro accessions.
   -w, --overwrite       If file name already exists, overwrite it. Default is False.
 ```
-Test the interpro fetching with the following command:
+Test the InterPro fetching with the following command:
 ```
 python fetchINPRO.py IPR000839 -o IPR000839_accessions.txt
 ```
@@ -277,11 +278,15 @@ python fetchINPRO.py IPR000839 -o IPR000839_accessions.txt
 
 # Codon and protein analysis
 ## Correlation and cross-validation analysis of codon usage bias and protein structure
-To analyse the effect of codon usage bias and specific correlation between synonymous codons and secondary structure elements ...
+To analyse the effects of codon usage bias and specific correlations between synonymous codons and secondary structure elements, two notebooks are provided. The first notebook `codon_metrics_analysis.ipynb` investigates the secondary structure and codon usage bias of different parts of the protein sequence. 
+The second notebook `cross_validation_destribution_analysis.ipynb`uses the KL divergence to compare the synonymous codon usage bias of the secondary structure elements. The notebook also compares the frequencies and probabilities. 
 
 ## Protein family based analysis of codon rarity, secondary structure and evolution
 The evolutionary analysis is based on the multiple sequence alignment of different protein families with data from the nustruDB (described previously). For each MSA the amino acid normalized codon rarities are calculated with the following formula:
-$$CRS_{column}= {\sum \limits _{AA_{AA}} ^{n_{aln}}(\sum \limits _{occ=1} ^{n_{aln}} {AA_{occ}} * f_c) \over {len_{total}(alignment)} - (gaps)}$$ 
+<br />
+<p align="center">
+  <img src="https://latex.codecogs.com/svg.image?\inline&space;\large&space;\bg{white}$$CRS_{column}={\sum\limits&space;_{AA_{AA}}^{n_{aln}}(\sum\limits&space;_{occ=1}^{n_{aln}}{AA_{occ}}*f_c)\over{len_{total}(alignment)}-(gaps)}$$" title="$$CRS_{column}={\sum\limits _{AA_{AA}}^{n_{aln}}(\sum\limits _{occ=1}^{n_{aln}}{AA_{occ}}*f_c)\over{len_{total}(alignment)}-(gaps)}$$" />
+</p>
 <br />
 
 Where $AA_{AA}$ is the amino acid at the position of the alignment, $AA_{occ}$ is the amino acid at the position of the alignment, $f_c$ is the frequency of the codon that encodes the amino acid, $len_{total}(alignment)$ is the total length of the alignment and $gaps$ are the gaps in the alignment. The script is called with the following command:
@@ -291,22 +296,47 @@ Where $AA_{AA}$ is the amino acid at the position of the alignment, $AA_{occ}$ i
 The multiple sequence alignment is done with the `mafft` software. The software can be installed with the following command:
 On Linux:
 ```
-sudo apt install [package_name] (like dssp, mafft, fasttree)
+sudo apt mafft
 ```
 On MacOS:
 ```
-brew install [package_name] (like brewsci/bio/dssp, mafft, fasttree)
+brew install mafft
 ```
 
 The previous database scripts should have created a protein fasta file with the filtered protein sequences, so that the alignment can then be done like this:
 ```
-mafft --auto input.fasta > output.fasta
+mafft --auto input.fasta > output_aln.fasta
 ```
 
+### Tree construction and rooting
+The tree construction is done with the `FastTree` software. The software can be installed with the following command:
+On Linux:
+```
+sudo apt install FastTree
+```
+On MacOS:
+```
+brew install FastTree
+```
+From the previous alignment, the tree can be constructed with the following command:
+```
+FastTree input_aln.fasta > output_tree.nwk
+```
+The automatic rooting of the tree can be done with MAD. The software should be manually installed from the source code, as described in the requirements section. The rooting can be done with the following command:
+```
+python mad.py input_tree.nwk 
+```
+
+Alternatively, the msa and tree construction can be automatically done with the `setup/align_and_tree.sh` script or the `setup/alignment_and_manual_tree_rooting.ipynb` notebook. Both helps to align the sequences and construct the tree. The notebook also helps to root the tree manually if desired.
+
 ### Analysis of codon rarities, structure and evolutionary implications
-For the analysis a jupyter notebook `/protein_family_analysis/msa_codon_evol.ipynb`is provided. The notebook explains each individual step and the results of the analysis. It directly implements the described formula to calculate the codon rarity on the msa. The notebook is divided into the following sections:
-- Calculate and map the Codon rarity at each position of a multiple sequence alignment
-- Transform alignment and sequences to arrays and align the gaps if necessary
-- Calculate the codon rarity for each position of the alignment
-- Visualize the Codon Rarity Score for each position of the alignment in MSA
-- Calculate the correlation between the smoothed Y and the secondary structure frequencies as a log odds ratio (rare codons and secondary structure)
+For the analysis of the codon rarity and protein structure the notebook `msa_codon_structure.ipynb` is provided. The notebook explains each individual step of the analysis. It directly implements the described formula to calculate the codon rarity on the msa. Furthermore, the log odds ratio is calculated to reveal positions with a higher likelihood to be influenced by codon usage bias. 
+<br />
+<br />
+For the phylogenetic analysis the notebook `phyl_codon_rarity.ipynb`is provided. The notebook explains the individual steps and the results of the analysis. It uses the `ete3` package to visualize the tree and the codon rarity. It also does a regression analysis to find the correlation between the codon rarity and the evolutionary distance.
+
+## Protein fold analysis of domains and fold classes with codon usage bias
+To analyse the fold classes and domains on the codon rarity (CRS) or relative synonymous codon usage (RSCU) the notebook `fold_domain_analysis.ipynb` is used. The notebook visualizes the ratio of alpha helix and beta sheet contents and the CRS or RSCU. To investigate the CRS on the folds, the path to the pickle file from `msa_codon_structure.ipynb`, which should be created when running the notebook, needs to be defined.
+
+# Implications and bugs
+Some of the scripts and notebooks are planned to be more optimized. The logging for the data construction seems to not work properly and should be fixed. Please reach out if any bugs are found or if any further improvements are needed.
