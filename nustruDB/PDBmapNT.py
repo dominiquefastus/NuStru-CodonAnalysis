@@ -115,6 +115,35 @@ def insert_pandas(df, source, entry_id, gene_name, organism, expression_system, 
     
     return df
 
+
+def fold_class(entryID):
+    """Get the base data for the protein from the PDB database."""
+    # this method is not complete yet and will be extended
+    # by using the polymer entity of the entry id, it is possible to get the data for each individual chain of the protein
+    # this works also for monomers as then only the data for one chain will be fetched
+    try:
+        # set up graphql query to get the organism, gene name, and expression system of the protein
+        # the query is based on the entry ID of the protein and retrieves the entity ids (chains) of the protein
+        #  query = '{entry(entry_id: "%s")  { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } polymer_entity_instances { rcsb_polymer_instance_feature { type feature_id feature_positions { end_seq_id beg_seq_id } } } rcsb_entity_host_organism { ncbi_scientific_name } } rcsb_entry_container_identifiers { polymer_entity_ids } } }' % entryID
+        query = '{entry(entry_id: "%s") { rcsb_id polymer_entities { rcsb_entity_source_organism { scientific_name ncbi_scientific_name rcsb_gene_name { value } } rcsb_entity_host_organism { ncbi_scientific_name } } rcsb_entry_container_identifiers { polymer_entity_ids } }}' % entryID
+        url = f'https://data.rcsb.org/graphql?query={query}'
+        
+        # get the response from the graphql query
+        response = session.get(url=url)
+
+        # if the query or response is successful, parse the data from the fetched json
+        if response.status_code == 200:
+            response = json.loads(response.text)
+
+            try:
+                # get the organism if available for the entity
+                organism = response['data']['entry']['polymer_entities'][0]['rcsb_entity_source_organism'][0]['ncbi_scientific_name']
+            except:
+                organism = "NaN"
+    except:
+        logging.error(f"Fold class data for protein {entryID} not available!")
+        pass
+
 def get_base_data(entryID):
     """Get the base data for the protein from the PDB database."""
     # by using the polymer entity of the entry id, it is possible to get the data for each individual chain of the protein
