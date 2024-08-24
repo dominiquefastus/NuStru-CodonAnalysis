@@ -60,7 +60,7 @@ The database construction follows the following steps for protein families (only
 - Fetch entries from Uniprot
 - rest is same as for individual entries
 
-While the individual scripts are described in the following sections, there is a complete pipeline script called `nustrufiller.py`. Based on the input, single or list of Uniprot id(s) or Intepro id(s), it will fetch and construct the required data. The pipeline script can be run with the following command:
+While the individual scripts are described in the following sections, there is a complete pipeline script called `nustrufiller.py`. Based on the input, single or list of Uniprot id(s) or Intepro id(s), it will fetch and construct the required data. The pipeline script can be run with the following arguments / options:
 ```
 usage: nustrufiller.py [-h] -i INPUT -o OUTPUT_PATH [-n NAME] [-u UNIQUE] [-w] -m API_MAIL -k API_KEY [-d]
 
@@ -90,7 +90,7 @@ Both PDB and Uniprot provide coding sequences for the deployed protein structure
 <br />
 
 #### Create nustruDB for PDB data
-To create the database from PDB, a graphql api is used to fetch the nucleotide sequences. The coding sequence of the protein is annotated with the start of the nucleotide sequence, the end of the nucleotide sequence, the strand and eventual exon shifts from the NCBI nt database. The csv file is created with the following command:
+To create the database from PDB, a graphql api is used to fetch the nucleotide sequences. The coding sequence of the protein is annotated with the start of the nucleotide sequence, the end of the nucleotide sequence, the strand and eventual exon shifts from the NCBI nt database. The csv file is created with the following arguments / options:
 
 ```
 usage: PDBmapNT [-h] -i ENTRYID [--sql] [--pandas] -o OUTPUT_PATH -n NAME [--map-uniprot] [--create-fasta {protein,nucleotide,all}] [-w]
@@ -119,7 +119,7 @@ python PDBmapNT.py -i Example/examples_nustruDB/example_pdbIDs.txt --pandas -o .
 
 #### Create nustruDB for Uniprot data
 To create the database from Uniprot, the nucleotide sequence is fetched from the NCBI nt database. The refered Genebank ID or EMBL ID is used to fetch the nucleotide sequence. Two scripts are provided, but while the first one follows a similiar strategy as the PDB mapping with only providing Uniprot ids (see `nustruDB/Example/example1_uniprotIDs.txt`), the second script takes in a predefined list (see `nustruDB/Example/example1_uniprotList.tsv`).
-The database is then created with the following command:
+The database is then created with the following arguments / options:
 
 ##### Slow version (but complete)
 ````
@@ -149,7 +149,7 @@ Test this uniprot mapping with the following command:
  python fastUPmapNT.py -i Example/examples_nustruDB/example_uniprotList.tsv -o . -n example_uniprotList_nustru [-w]
 ````
 ##### Fast version (but needs additional steps) - recommended
-To use the parallel version of the uniprot mapping, a tsv table of the uniprot ids and the column feature is needed. The script is adapted from: https://www.uniprot.org/help/api_queries and uses batches to retrieve the required data. The script is called with the following command:
+To use the parallel version of the uniprot mapping, a tsv table of the uniprot ids and the column feature is needed. The script is adapted from: https://www.uniprot.org/help/api_queries and uses batches to retrieve the required data. 
 ```
 usage: fetchUPTSV.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-w]
 
@@ -169,7 +169,7 @@ Test the tsv table creation with the following command:
  python fetchUPTSV.py -i Example/examples_nustruDB/example_uniprotIDs.txt -o uniprot_features -n uniprot_features [-w]
 ```
 
-The tsv table can then be used to map the nucleotide sequences to the uniprot ids with the following command:
+The tsv table can then be used to map the nucleotide sequences to the uniprot ids with the following arguments / options:
 ````
 usage: fastUPmapNT.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-w]
 
@@ -192,7 +192,7 @@ python fastUPmapNT.py -i Example/examples_nustruDB/example_uniprotList.tsv -o . 
 <br />
 
 ### Filter the entries for the analysis
-The dataframe or database contains many redundant entries. To reduce the redundancy and also wrong translations from the nucleotide coding sequence, the entries are filtered by the following criteria: The coding sequence start with ATG, the coding sequence is dividable by a trinucleotide (codon), the coding sequence only contains valid nucleotides (A, T, C, G) and the coding sequence can be translated to the same assigned protein sequence. The script is called with the following command:
+The dataframe or database contains many redundant entries. To reduce the redundancy and also wrong translations from the nucleotide coding sequence, the entries are filtered by the following criteria: The coding sequence start with ATG, the coding sequence is dividable by a trinucleotide (codon), the coding sequence only contains valid nucleotides (A, T, C, G) and the coding sequence can be translated to the same assigned protein sequence. The script is called with the following arguments / options:
 
 ```
 usage: db_filter.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-u UNIQUE] [-w]
@@ -228,7 +228,7 @@ brew install brewsci/bio/dssp
 ```
 <br />
 
-The script will create two additional columns with the b-factor for PDB entries or the pLDDT score for Uniprot entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following command:
+The script will create two additional columns with the b-factor for PDB entries or the pLDDT score for Uniprot entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following arguments / options:
 
 ```
 usage: db_fetch.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-d] [-w]
@@ -251,9 +251,32 @@ python db_fetch.py -i Example/examples_nustruDB/example_dbfetch.csv -o . -n exam
 ```
 <br />
 
+### Fetch the domains and fold classes
+The domains and fold classes were not fetched during the previous steps. The script `db_fclass.py` is used to fetch the annotated domains and fold classes for a protein. The fold class is retrieved from
+the CATH or SUPFAM database, but still needs to be improved. The script is called with the following arguments / options:
+```
+usage: db_fclass.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-w]
+
+Fetch the annotated domains and fold classes for a protein.
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT_FILE, --input INPUT_FILE
+                        Input file of csv formatted uniprot or pdb entries.
+  -o OUTPUT_PATH, --output OUTPUT_PATH
+                        Output to store the new csv with domain and fold class information.
+  -n NAME, --name NAME  Name of the output files and log file.
+  -w, --overwrite       If file name already exists, overwrite it. Default is False.
+```
+Test the domain and fold class fetching with the following command:
+```
+python -i Example/examples_nustruDB/example_dbfclass.csv -o . -n example_dbfclass_nustru_fetched
+```
+<br />
+
 ## Other scripts to obtain data
 ### Fetch the protein members of a protein family from InterPro
-Some of the analysis was done on whole protein families. While `nustrufiller.py` can be used to fetch the data and perform several data preperation steps automatically, the script `fetchINPRO.py` can be used to fetch the protein members of a protein family from InterPro seperately. The script is called with the following command:
+Some of the analysis was done on whole protein families. While `nustrufiller.py` can be used to fetch the data and perform several data preperation steps automatically, the script `fetchINPRO.py` can be used to fetch the protein members of a protein family from InterPro seperately. The script is called with the following arguments / options:
 
 ```
 usage: fetchINPRO.py [-h] -o OUTPUT_PATH [-w] family_id
