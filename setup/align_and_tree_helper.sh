@@ -1,25 +1,5 @@
 #!/bin/bash
 
-check_and_install() {
-    local prog=$1
-    local install_cmd=$2
-    if ! command -v "$prog" &> /dev/null; then
-        echo "$prog not found, attempting to install..."
-        eval "$install_cmd"
-        if ! command -v "$prog" &> /dev/null; then
-            echo "Was not able to install $prog automatically. Please install manually."
-        else
-            echo "$prog installed successfully."
-        fi
-    else
-        echo "$prog already installed: $(command -v $prog)"
-    fi
-}
-
-check_and_install "mmseqs" "conda install -c conda-forge -c bioconda mmseqs2"
-check_and_install "mafft" "if [[ $(uname) == 'Darwin' ]]; then brew install mafft; else echo 'Please install mafft manually for Linux'; fi"
-check_and_install "FastTree" "if [[ $(uname) == 'Darwin' ]]; then brew install fasttree; else sudo apt install -y fasttree; fi"
-
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --fasta) fasta_file="$2"; shift ;;
