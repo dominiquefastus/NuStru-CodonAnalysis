@@ -133,9 +133,10 @@ class UPmapperNT:
                         # errors can be frameshifts, sequence conflicts, wrong translation, wrong cds id, etc.
                         logging.error(f"Error: {cds_id} and {protein_id} for {data['primary_id']} not found.")
                         continue
-                                
-                with open(f'{output_path}/{name}.fasta', 'a') as f: # write the nucleotide sequence to a fasta file
-                    f.write(f">{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n")
+                
+                # the nucleotide sequences can be created after filering the data             
+                # with open(f'{output_path}/{name}.fasta', 'a') as f: # write the nucleotide sequence to a fasta file
+                    # f.write(f">{data['primary_id']}|{matched_id} {data['organism']}\n{matched_seq.split(':')[1]}\n")
 
                 data['nucleotide_sequence'] = matched_seq # assign the nucleotide sequence to the dataframe
                 # build a new dataframe with the data and write it to a csv file (append mode)

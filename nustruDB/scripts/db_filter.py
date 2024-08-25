@@ -35,7 +35,7 @@ from Bio.Seq import Seq
 from pandarallel import pandarallel
 pandarallel.initialize(progress_bar=True, nb_workers=8, verbose=0)
 
-def filter_sequences(data, output_path, name, prot_fasta=True, nuc_fasta=True):
+def filter_sequences(data, output_path, name, create_fasta='none'):
     """Checks and writed matching nucleotide and protein sequence"""
     # check if the nucleotide sequence starts with start codon (normally ATG)
     if data['nucleotide_sequence'][0:3] == "ATG":
@@ -56,10 +56,10 @@ def filter_sequences(data, output_path, name, prot_fasta=True, nuc_fasta=True):
                 # then write the protein and nucleotide sequence to a fasta file
                 if translated_sequence == data['protein_sequence']:
                     # check if a protein and nucleotide fasta files should be created
-                    if prot_fasta:
+                    if create_fasta == 'protein' or create_fasta == 'all':
                         with open(f'{output_path}/{name}_protein.fasta', 'a') as f:
                             f.write(f">{data['primary_id']}\n{data['protein_sequence']}\n")
-                    if nuc_fasta:
+                    if create_fasta == 'nucleotide' or create_fasta == 'all':
                         with open(f'{output_path}/{name}_nucleotide.fasta', 'a') as f2:
                             f2.write(f">{data['primary_id']}\n{data['nucleotide_sequence']}\n")
                     
@@ -104,7 +104,7 @@ def main():
         help='pssibility to drop duplicate. To keep duplicates use None. Default: organisms' 
     ) 
     parser.add_argument(
-        '--create-fasta', choices=['protein', 'nucleotide', 'all'], dest="create_fasta", default=False,
+        '--create-fasta', choices=['protein', 'nucleotide', 'all', 'none'], dest="create_fasta", default='none',
         help="Create a fasta file with the nucleotide sequences, protein sequences or both."
     )
     parser.add_argument(

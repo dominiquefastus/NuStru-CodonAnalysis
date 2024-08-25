@@ -175,7 +175,7 @@ async def main():
         
     # apply the nucleotide_to_protein function to filter the data in parallel
     df.parallel_apply(lambda data: filter_sequences(data=data, output_path=f"{args.output_path}/{dir_name}_nustruDB/", 
-                                                    name=f"{args.name}_filtered", prot_fasta=False, nuc_fasta=False), axis=1)
+                                                    name=f"{args.name}_filtered", create_fasta='none'), axis=1)
     
     # remove duplicates by a column from the new csv file and overwrite the new csv file if the flag is set
     if args.unique is not None:
@@ -206,6 +206,16 @@ async def main():
     if not args.download:
         shutil.rmtree(f'{args.output_path}/{dir_name}_nustruDB/cif_files/')
         shutil.rmtree(f'{args.output_path}/{dir_name}_nustruDB/pdb_files/')
+        
+    ##############################################################################################################
+    nucleotide_protein_seqs_df_secstru = pd.read_csv(f"{args.output_path}/{dir_name}_nustruDB/{args.name}_filtered_secstru.csv", index_col=False)
+    # create a fasta file with the protein sequences after filtering and secondary structure retrieval
+    def create_fasta(data, output_path, name):
+        with open(f"{output_path}/{name}.fasta", "a") as f:
+            f.write(f">{data['primary_id']}\n{data['protein_sequence']}\n")
+            
+    # apply the create_fasta function to the dataframe in parallel
+    nucleotide_protein_seqs_df_secstru.parallel_apply(lambda data: create_fasta(data=data, output_path=f"{args.output_path}/{dir_name}_nustruDB", name=f"{args.name}_filtered_secstru_protein"), axis=1)
     
 if __name__ == '__main__':
     asyncio.run(main())
