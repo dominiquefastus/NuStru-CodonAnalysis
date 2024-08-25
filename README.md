@@ -1,17 +1,17 @@
 # NuStru - Nucleotide Codon Usage Bias Analysis on Protein Structure & Evolution
 
-Mainly, the project aims to discover correlations between specific motifs in the protein structure and a bias in the codons that encode these motifs. It also explores the evolutionary implications of these biases. 
+Mainly, the project aims to discover correlations between specific motifs in the protein structure and a bias in the codons that encode these motifs. It also explores the evolutionary implications of these biases on protein families. 
 
 ## Requirements
-The project is developed in Python 3.11 or later. All packages are installed respictively in a conda environment. An environment with the required packages is provided in the `nustru_environment.yml` file. To create the environment, the following command can be run:
+The project is developed in Python 3.11 or later. All packages are installed respictively in a conda environment. An environment with the required packages is available in the `nustru_environment.yml` file. To create the environment, the following command can be run:
 ```
 conda env create -f setup/nustru_environment.yml
 ```
-For the phylogenetic tree construction and analysis `ete3` is used, which has some specific installation dependencies. So the package should be installed in an extra environment. The environment with the required packages is provided in the `nustru-phyl_environment.yml` file. To create the environment, the following command can be run:
+For the phylogenetic tree construction and analysis `ete3` is used, which has some specific installation dependencies. So the package need to be installed in an extra environment. The environment with the required packages is available in the `nustru-phyl_environment.yml` file. To create the environment, the following command can be run:
 ```
 conda env create -f setup/nustru-phyl_environment.yml
 ```
-One additional package needs to be installed manually, as the CAI python package has some problems with pip installation. The package can be installed with the following command:
+One additional package needs to be installed manually, as the CAI python package has some problems with the pip installation. The package can be installed with the following command:
 ```
 pip install git+https://github.com/Benjamin-Lee/CodonAdaptationIndex.git
 ```
@@ -25,7 +25,7 @@ mad                     2.2
 mafft                   7.525
 ```
 
-While the installation procedure for these packages is mentioned in the specific sections, there is also a script provided to install all the required software packages at once. The script is run with the following command:
+While the installation procedure for these packages is mentioned in the specific sections, there is also a script provided to install all the required software packages at once. The script can be run with the following command:
 ```
 bash setup/package_helper.sh 
 ```
@@ -47,22 +47,22 @@ Sometimes mad can not be installed with these methods, so the source code can be
 
 # Nucleotide Structure Database (nustruDB)
 ## Complete data construction pipeline
-To construct and filter the data in a more fast forward way, a pipeline script is provided. But alternatively if only parts of the pipeline are needed, the scripts can be run individually as described in the following sections. Several improvement have been made to parallelize and asynchronize the data fetching over API calls. Even pagination was used to limit the requests if applicable. However, many website like ncbi limit API requests to around 3-10 requests per second and a account is needed. Dealing with hundred thousands of uniprot entries, this can slow down the process.
+To construct and filter the data in a more fast forward way, a pipeline script is provided. But alternatively if only parts of the pipeline are needed, the scripts can be run individually as described in the following sections. Several improvements have been made to parallelize and asynchronize the data fetching over API calls. Even pagination was used to limit the requests if applicable. However, many websites like NCBI limit API requests to around 3-10 requests per second. Dealing with hundreds of thousands of uniprot entries, this can slow down the process.
 
-Note: Some of the script require an api key for ncbi to accelerate and parallelize the data fetching. The api key can be created following the website instructions: https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us. The scripts are optimized to use the api key and the mail address to fetch the data, if requested changes can be made to lower the request rate and avoid the api key.
+Note: Some of the scripts require an api key for NCBI to accelerate and parallelize the data fetching. The api key can be created by following the website instructions: https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us. The scripts are optimized to use the api key and the mail address to fetch the data, if requested changes can be made to lower the request rate and avoid the api key.
 
-The database construction follows the following steps for individual entries:
+The database construction includes the following steps for individual entries:
 - Fetch entry from PDB or Uniprot
 - Map the nucleotide sequence to the protein sequence (Uniprot is seperated in two steps)
 - Filter the entries for wrong translations and redundancy
 - Assign secondary structure and other features to the entries
 
-The database construction follows the following steps for protein families (only for Uniprot):
-- Fetch protein members of family from InterPro
+The database construction includes the following steps for protein families (only for Uniprot):
+- Fetch protein members of a family from InterPro
 - Fetch entries from Uniprot
-- rest is same as for individual entries
+- other steps are the same as for individual entries
 
-While the individual scripts are described in the following sections, there is a complete pipeline script called `nustrufiller.py`. Based on the input, single or list of Uniprot id(s) or Intepro id(s), it will fetch and construct the required data. The pipeline script can be run with the following arguments / options:
+While the individual scripts are described in the following sections, there is a complete pipeline script called `nustrufiller.py`. Based on the input, one or a list of Uniprot id(s) or Intepro id(s), it will fetch and construct the required data. The pipeline script can be run with the following arguments / options:
 ```
 usage: nustrufiller.py [-h] -i INPUT -o OUTPUT_PATH [-n NAME] [-u UNIQUE] [-w] -m API_MAIL -k API_KEY [-d]
 
@@ -151,7 +151,7 @@ Test this uniprot mapping with the following command:
  python fastUPmapNT.py -i Example/examples_nustruDB/example_uniprotList.tsv -o . -n example_uniprotList_nustru [-w]
 ````
 ##### Fast version (but needs additional steps) - recommended
-To use the parallel version of the uniprot mapping, a tsv table of the uniprot ids and the column feature is needed. The script is adapted from: https://www.uniprot.org/help/api_queries and uses batches to retrieve the required data. 
+To use the parallel version of the uniprot mapping, a tsv table of the uniprot ids and the column features is needed. The script is adapted from: https://www.uniprot.org/help/api_queries and uses batches to retrieve the required data. 
 ```
 usage: fetchUPTSV.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-w]
 
@@ -194,7 +194,7 @@ python fastUPmapNT.py -i Example/examples_nustruDB/example_uniprotList.tsv -o . 
 <br />
 
 ### Filter the entries for the analysis
-The dataframe or database contains many redundant entries. To reduce the redundancy and also wrong translations from the nucleotide coding sequence, the entries are filtered by the following criteria: The coding sequence start with ATG, the coding sequence is dividable by a trinucleotide (codon), the coding sequence only contains valid nucleotides (A, T, C, G) and the coding sequence can be translated to the same assigned protein sequence. The script is called with the following arguments / options:
+The dataframe or database contains many redundant entries. To reduce the redundancy and also delete wrong translations from the nucleotide coding sequence, the entries are filtered by the following criteria: The coding sequence starts with ATG, the coding sequence is dividable by trinucleotides (codons), the coding sequence only contains valid nucleotides (A, T, C, G) and the coding sequence can be translated to the same assigned protein sequence. The script is called with the following arguments / options:
 
 ```
 usage: db_filter.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-u UNIQUE] [-w]
@@ -219,7 +219,7 @@ python db_filter.py -i Example/examples_nustruDB/example_db_filtered.csv -o . -n
 <br />
 
 ### Assign secondary structure and other features to the entries (both PDB and Uniprot)
-It is better to filter first the data and then fetch the secondary structure information, as it reduces the API load. To run this script, an installed version of the `DSSP` software is required. Try to install it with the following command.
+It is better to filter first the data and then fetch the secondary structure information, as it reduces the API load. To run this script, an installed version of the `DSSP` software is required. Try to install it with the following command:
 On Linux:
 ```
 sudo apt install dssp
@@ -230,7 +230,7 @@ brew install brewsci/bio/dssp
 ```
 <br />
 
-The script will create two additional columns with the b-factor for PDB entries or the pLDDT score for Uniprot entries as dictionary by position and the secondary structure as a 1-dimensional sequence. The chain of the model is taken into account. The script is called with the following arguments / options:
+The script will create two additional columns with the b-factor for PDB entries or the pLDDT score for Uniprot entries  and the secondary structure. The chain of the model is taken into account. The script is called with the following arguments / options:
 
 ```
 usage: db_fetch.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-d] [-w]
@@ -278,7 +278,7 @@ python -i Example/examples_nustruDB/example_dbfclass.csv -o . -n example_dbfclas
 
 ## Other scripts to obtain data
 ### Fetch the protein members of a protein family from InterPro
-Some of the analysis was done on whole protein families. While `nustrufiller.py` can be used to fetch the data and perform several data preperation steps automatically, the script `fetchINPRO.py` can be used to fetch the protein members of a protein family from InterPro seperately. The script is called with the following arguments / options:
+Some of the analysis were done on whole protein families. While `nustrufiller.py` can be used to fetch the data and perform several data preperation steps automatically, the script `fetchINPRO.py` can be used to fetch the members (Uniprot IDs) of a protein family from InterPro seperately. The script is called with the following arguments / options:
 
 ```
 usage: fetchINPRO.py [-h] -o OUTPUT_PATH [-w] family_id
@@ -307,14 +307,14 @@ To analyse the effects of codon usage bias and specific correlations between syn
 The second notebook `cross_validation_destribution_analysis.ipynb` uses the KL divergence to compare the synonymous codon usage bias of the secondary structure elements. The notebook also compares the frequencies and probabilities. 
 
 ## Protein family based analysis of codon rarity, secondary structure and evolution
-The evolutionary analysis is based on the multiple sequence alignment of different protein families with data from the nustruDB (described previously). For each MSA the amino acid normalized codon rarities are calculated with the following formula:
+The evolutionary analysis is based on the multiple sequence alignment of different protein families with data from the nustruDB (described previously). For each msa, the amino acid`s normalized codon rarities are calculated with the following formula:
 <br />
 <p align="center">
   <img src="https://latex.codecogs.com/svg.image?\inline&space;\large&space;\bg{white}$$CRS_{column}={\sum\limits&space;_{AA_{AA}}^{n_{aln}}(\sum\limits&space;_{occ=1}^{n_{aln}}{AA_{occ}}*f_c)\over{len_{total}(alignment)}-(gaps)}$$" title="$$CRS_{column}={\sum\limits _{AA_{AA}}^{n_{aln}}(\sum\limits _{occ=1}^{n_{aln}}{AA_{occ}}*f_c)\over{len_{total}(alignment)}-(gaps)}$$" />
 </p>
 <br />
 
-Where $AA_{AA}$ is the amino acid at the position of the alignment, $AA_{occ}$ is the amino acid at the position of the alignment, $f_c$ is the frequency of the codon that encodes the amino acid, $len_{total}(alignment)$ is the total length of the alignment and $gaps$ are the gaps in the alignment. The script is called with the following command:
+Where $AA_{AA}$ is the amino acid at the position of the alignment, $AA_{occ}$ is the amino acid at the position of the alignment, $f_c$ is the frequency of the codon that encodes the amino acid, $len_{total}(alignment)$ is the total length of the alignment and $gaps$ are the gaps in the alignment.
 
 ### Make the multiple sequence alignment
 
@@ -343,7 +343,7 @@ On MacOS:
 ```
 brew install FastTree
 ```
-From the previous alignment, the tree can be constructed with the following command:
+From the previous alignment, the tree can be constructed with the like this:
 ```
 FastTree input_aln.fasta > output_tree.nwk
 ```
@@ -364,4 +364,4 @@ For the phylogenetic analysis the notebook `phyl_codon_rarity.ipynb`is provided.
 To analyse the fold classes and domains on the codon rarity (CRS) or relative synonymous codon usage (RSCU) the notebook `fold_domain_analysis.ipynb` is used. The notebook visualizes the ratio of alpha helix and beta sheet contents and the CRS or RSCU. To investigate the CRS on the folds, the path to the pickle file from `msa_codon_structure.ipynb`, which should be created when running the notebook, needs to be defined.
 
 # Implications and bugs
-Some of the scripts and notebooks are planned to be more optimized. The logging for the data construction seems to not work properly and should be fixed. Please reach out if any bugs are found or if any further improvements are needed.
+Some of the scripts and notebooks are planned to be more optimized. The logging for the data construction seems to not work properly and should be fixed.
