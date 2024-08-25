@@ -1,4 +1,4 @@
-# NuStru - Nucleotide Codon Usage Bias Analysis on Protein Folding & Structure
+# NuStru - Nucleotide Codon Usage Bias Analysis on Protein Structure & Evolution
 
 Mainly, the project aims to discover correlations between specific motifs in the protein structure and a bias in the codons that encode these motifs. It also explores the evolutionary implications of these biases. 
 
@@ -7,7 +7,7 @@ The project is developed in Python 3.11 or later. All packages are installed res
 ```
 conda env create -f setup/nustru_environment.yml
 ```
-For the phylegentic tree construction and analysis `ete3` is used, which has some specific installation dependencies. So the package should be installed in an extra environment. The environment with the required packages is provided in the `nustru-phyl_environment.yml` file. To create the environment, the following command can be run:
+For the phylogenetic tree construction and analysis `ete3` is used, which has some specific installation dependencies. So the package should be installed in an extra environment. The environment with the required packages is provided in the `nustru-phyl_environment.yml` file. To create the environment, the following command can be run:
 ```
 conda env create -f setup/nustru-phyl_environment.yml
 ```
@@ -42,6 +42,8 @@ brew install [package_name] (like brewsci/bio/dssp, mafft, fasttree, mad)
 <br />
 
 Sometimes mad can not be installed with these methods, so the source code can be downloaded from the website and installed manually. The source code can be found here: https://www.mikrobio.uni-kiel.de/de/ag-dagan/ressourcen
+<br />
+<br />
 
 # Nucleotide Structure Database (nustruDB)
 ## Complete data construction pipeline
@@ -217,7 +219,7 @@ python db_filter.py -i Example/examples_nustruDB/example_db_filtered.csv -o . -n
 <br />
 
 ### Assign secondary structure and other features to the entries (both PDB and Uniprot)
-It is better to filter first the data and then fetch the secondary structure information, as it reduced the API load. To run this script, an installed version of the `DSSP` software is required. Try to install it with the following command.
+It is better to filter first the data and then fetch the secondary structure information, as it reduces the API load. To run this script, an installed version of the `DSSP` software is required. Try to install it with the following command.
 On Linux:
 ```
 sudo apt install dssp
@@ -253,7 +255,7 @@ python db_fetch.py -i Example/examples_nustruDB/example_dbfetch.csv -o . -n exam
 
 ### Fetch the domains and fold classes
 The domains and fold classes were not fetched during the previous steps. The script `db_fclass.py` is used to fetch the annotated domains and fold classes for a protein. The fold class is retrieved from
-the CATH or SUPFAM database, but still needs to be improved. The script is called with the following arguments / options:
+the CATH or SUPFAM database, this still needs to be improved. The script is called with the following arguments / options:
 ```
 usage: db_fclass.py [-h] -i INPUT_FILE -o OUTPUT_PATH -n NAME [-w]
 
@@ -302,7 +304,7 @@ python fetchINPRO.py IPR000839 -o IPR000839_accessions.txt
 # Codon and protein analysis
 ## Correlation and cross-validation analysis of codon usage bias and protein structure
 To analyse the effects of codon usage bias and specific correlations between synonymous codons and secondary structure elements, two notebooks are provided. The first notebook `codon_metrics_analysis.ipynb` investigates the secondary structure and codon usage bias of different parts of the protein sequence. 
-The second notebook `cross_validation_destribution_analysis.ipynb`uses the KL divergence to compare the synonymous codon usage bias of the secondary structure elements. The notebook also compares the frequencies and probabilities. 
+The second notebook `cross_validation_destribution_analysis.ipynb` uses the KL divergence to compare the synonymous codon usage bias of the secondary structure elements. The notebook also compares the frequencies and probabilities. 
 
 ## Protein family based analysis of codon rarity, secondary structure and evolution
 The evolutionary analysis is based on the multiple sequence alignment of different protein families with data from the nustruDB (described previously). For each MSA the amino acid normalized codon rarities are calculated with the following formula:
